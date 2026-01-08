@@ -98,6 +98,13 @@ function sendLog(level, logger, data) {
 // HOME ASSISTANT API HELPERS
 // ============================================================================
 
+// Base URL for Supervisor API proxy (most endpoints)
+const HA_CORE_API = "http://supervisor/core";
+
+/**
+ * Call Home Assistant via Supervisor API proxy
+ * Used for most endpoints that are proxied through supervisor
+ */
 async function callHA(endpoint, method = "GET", body = null) {
   sendLog("debug", "ha-api", { action: "request", endpoint, method });
   
@@ -125,6 +132,42 @@ async function callHA(endpoint, method = "GET", body = null) {
   if (contentType && contentType.includes("application/json")) {
     const result = await response.json();
     sendLog("debug", "ha-api", { action: "response", endpoint, success: true });
+    return result;
+  }
+  return response.text();
+}
+
+/**
+ * Call Home Assistant Core API directly
+ * Used for endpoints not available through the Supervisor API proxy (e.g., /api/error_log)
+ */
+async function callHACore(endpoint, method = "GET", body = null) {
+  sendLog("debug", "ha-core-api", { action: "request", endpoint, method });
+  
+  const options = {
+    method,
+    headers: {
+      "Authorization": `Bearer ${SUPERVISOR_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+  };
+
+  if (body) {
+    options.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(`${HA_CORE_API}${endpoint}`, options);
+  
+  if (!response.ok) {
+    const text = await response.text();
+    sendLog("error", "ha-core-api", { action: "error", endpoint, status: response.status, error: text });
+    throw new Error(`HA Core API error (${response.status}): ${text}`);
+  }
+
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.includes("application/json")) {
+    const result = await response.json();
+    sendLog("debug", "ha-core-api", { action: "response", endpoint, success: true });
     return result;
   }
   return response.text();
@@ -1718,14 +1761,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_devices": {
-        // device_id() returns all device IDs; device_attr() gets device attributes
-        // Build a list of devices with their basic info
+        // Get devices by extracting unique device_ids from all entity states
+        // Then use device_attr() to get device details
         let template;
         if (args?.area_id) {
+          // Get devices for a specific area
           template = `{% set ns = namespace(devices=[]) %}{% for device_id in area_devices('${args.area_id}') %}{% set ns.devices = ns.devices + [{'id': device_id, 'name': device_attr(device_id, 'name'), 'manufacturer': device_attr(device_id, 'manufacturer'), 'model': device_attr(device_id, 'model')}] %}{% endfor %}{{ ns.devices | tojson }}`;
         } else {
-          // Get all device IDs by collecting from all areas + devices without areas
-          template = `{% set ns = namespace(devices=[]) %}{% for device_id in device_entities() | map('device_id') | unique | reject('none') %}{% set ns.devices = ns.devices + [{'id': device_id, 'name': device_attr(device_id, 'name'), 'manufacturer': device_attr(device_id, 'manufacturer'), 'model': device_attr(device_id, 'model'), 'area': device_attr(device_id, 'area_id')}] %}{% endfor %}{{ ns.devices | tojson }}`;
+          // Get all devices by iterating through states and collecting unique device_ids
+          template = `{% set ns = namespace(device_ids=[]) %}{% for state in states %}{% if device_id(state.entity_id) and device_id(state.entity_id) not in ns.device_ids %}{% set ns.device_ids = ns.device_ids + [device_id(state.entity_id)] %}{% endif %}{% endfor %}{% set ns2 = namespace(devices=[]) %}{% for did in ns.device_ids %}{% set ns2.devices = ns2.devices + [{'id': did, 'name': device_attr(did, 'name'), 'manufacturer': device_attr(did, 'manufacturer'), 'model': device_attr(did, 'model'), 'area': device_attr(did, 'area_id')}] %}{% endfor %}{{ ns2.devices | tojson }}`;
         }
         const result = await callHA("/template", "POST", { template });
         return makeCompatibleResponse({
@@ -1746,8 +1790,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_error_log": {
-        // The correct endpoint is /error/all for fetching error logs
-        const log = await callHA("/error/all");
+        // Use HA Core API directly for error_log endpoint (not available via Supervisor proxy)
+        const log = await callHACore("/api/error_log");
         const lines = args?.lines || 100;
         const logLines = log.split("\n").slice(-lines).join("\n");
         return makeCompatibleResponse({
