@@ -1708,8 +1708,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_areas": {
+        // Use namespace to properly accumulate values in Jinja2 loop
         const result = await callHA("/template", "POST", {
-          template: "{% set area_list = [] %}{% for area in areas() %}{% set area_list = area_list + [{'id': area, 'name': area_name(area)}] %}{% endfor %}{{ area_list | tojson }}"
+          template: "{% set ns = namespace(areas=[]) %}{% for area in areas() %}{% set ns.areas = ns.areas + [{'id': area, 'name': area_name(area)}] %}{% endfor %}{{ ns.areas | tojson }}"
         });
         return makeCompatibleResponse({
           content: [createTextContent(result, { audience: ["assistant"], priority: 0.7 })],
@@ -1717,9 +1718,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_devices": {
-        let template = "{{ devices() | list }}";
+        // device_id() returns all device IDs; device_attr() gets device attributes
+        // Build a list of devices with their basic info
+        let template;
         if (args?.area_id) {
-          template = `{{ area_devices('${args.area_id}') | list }}`;
+          template = `{% set ns = namespace(devices=[]) %}{% for device_id in area_devices('${args.area_id}') %}{% set ns.devices = ns.devices + [{'id': device_id, 'name': device_attr(device_id, 'name'), 'manufacturer': device_attr(device_id, 'manufacturer'), 'model': device_attr(device_id, 'model')}] %}{% endfor %}{{ ns.devices | tojson }}`;
+        } else {
+          // Get all device IDs by collecting from all areas + devices without areas
+          template = `{% set ns = namespace(devices=[]) %}{% for device_id in device_entities() | map('device_id') | unique | reject('none') %}{% set ns.devices = ns.devices + [{'id': device_id, 'name': device_attr(device_id, 'name'), 'manufacturer': device_attr(device_id, 'manufacturer'), 'model': device_attr(device_id, 'model'), 'area': device_attr(device_id, 'area_id')}] %}{% endfor %}{{ ns.devices | tojson }}`;
         }
         const result = await callHA("/template", "POST", { template });
         return makeCompatibleResponse({
@@ -1740,7 +1746,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_error_log": {
-        const log = await callHA("/error_log");
+        // The correct endpoint is /error/all for fetching error logs
+        const log = await callHA("/error/all");
         const lines = args?.lines || 100;
         const logLines = log.split("\n").slice(-lines).join("\n");
         return makeCompatibleResponse({
@@ -2309,8 +2316,9 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     }
     
     if (uri === "ha://areas") {
+      // Use namespace to properly accumulate values in Jinja2 loop
       const result = await callHA("/template", "POST", {
-        template: "{% set area_list = [] %}{% for area in areas() %}{% set area_list = area_list + [{'id': area, 'name': area_name(area)}] %}{% endfor %}{{ area_list | tojson }}"
+        template: "{% set ns = namespace(areas=[]) %}{% for area in areas() %}{% set ns.areas = ns.areas + [{'id': area, 'name': area_name(area)}] %}{% endfor %}{{ ns.areas | tojson }}"
       });
       return {
         contents: [{ 
