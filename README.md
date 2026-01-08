@@ -9,6 +9,20 @@
 
 AI-powered coding agent for Home Assistant configuration.
 
+## About This Add-on
+
+HA OpenCode brings the power of OpenCode directly to your Home Assistant instance. Edit your configuration files using natural language, get intelligent YAML assistance, and leverage deep Home Assistant integration through MCP (Model Context Protocol).
+
+### Key Features
+
+- **AI-Powered Editing** - Use natural language to modify your Home Assistant configuration
+- **Modern Web Terminal** - Beautiful terminal with 10 theme options, accessible from the HA sidebar
+- **Provider Agnostic** - Works with Anthropic, OpenAI, Google, and 70+ other AI providers
+- **MCP Integration** - 19 tools, 9 resources, and 6 guided prompts for deep HA integration
+- **LSP Support** - Intelligent YAML editing with entity autocomplete, hover info, and diagnostics
+- **Log Access** - View Home Assistant Core, Supervisor, and host logs directly
+- **Ingress Support** - Secure access through Home Assistant authentication
+
 ## What is OpenCode?
 
 [OpenCode](https://opencode.ai) is an open-source AI coding agent that runs in your terminal. It understands your codebase, can edit files, run commands, and help you build software using natural language. Think of it as having an expert developer available 24/7 who can read your code, suggest improvements, fix bugs, and implement features.
@@ -40,20 +54,6 @@ OpenCode supports **75+ AI providers** including:
 OpenCode includes **OpenCode Zen**, a free tier that lets you get started without any API keys or subscriptions. Zen provides access to curated models optimized for coding tasks - perfect for trying out HA OpenCode or for users who don't want to manage their own API keys.
 
 To use the free tier, simply run `/connect` and select **OpenCode Zen** as your provider.
-
-## About This Add-on
-
-HA OpenCode brings the power of OpenCode directly to your Home Assistant instance. Edit your configuration files using natural language, get intelligent YAML assistance, and leverage deep Home Assistant integration through MCP (Model Context Protocol).
-
-### Key Features
-
-- **AI-Powered Editing** - Use natural language to modify your Home Assistant configuration
-- **Modern Web Terminal** - Beautiful terminal with 10 theme options, accessible from the HA sidebar
-- **Provider Agnostic** - Works with Anthropic, OpenAI, Google, and 70+ other AI providers
-- **MCP Integration** - 19 tools, 9 resources, and 6 guided prompts for deep HA integration
-- **LSP Support** - Intelligent YAML editing with entity autocomplete, hover info, and diagnostics
-- **Log Access** - View Home Assistant Core, Supervisor, and host logs directly
-- **Ingress Support** - Secure access through Home Assistant authentication
 
 [:books: Read the full add-on documentation][addon-doc-ha-opencode]
 
