@@ -124,7 +124,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 [repo-add]: https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fmagnusoverli%2Fha_opencode
 [repo-btn]: https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg
 
-[version-shield]: https://img.shields.io/badge/version-v1.0.9-blue.svg
+[version-shield]: https://img.shields.io/badge/version-v1.0.12-blue.svg
 [project-stage-shield]: https://img.shields.io/badge/project%20stage-experimental-orange.svg
 [license-shield]: https://img.shields.io/github/license/magnusoverli/ha_opencode.svg
 [maintenance-shield]: https://img.shields.io/maintenance/yes/2026.svg
