@@ -23,3 +23,10 @@ configuration:
   cursor_blink:
     name: "Blinking Cursor"
     description: "Whether the terminal cursor should blink."
+  
+  direct_access_port:
+    name: "Direct Access Port (for Clipboard Support)"
+    description: "Enable a direct access port to bypass ingress iframe. When enabled, you can open the terminal at http://homeassistant.local:<PORT> in a new browser tab with full clipboard copy/paste support. Set to 7682 (default) or any port between 1024-65535. Leave empty to disable."
+
+network:
+  7682/tcp: "Direct access for clipboard support (open in new browser tab)"

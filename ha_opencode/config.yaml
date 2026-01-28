@@ -1,7 +1,7 @@
 ---
 name: "HA OpenCode"
 description: "AI coding agent for editing Home Assistant configuration with deep MCP integration and LSP support"
-version: "1.0.12"
+version: "1.0.13"
 slug: "ha_opencode"
 url: "https://github.com/magnusoverli/ha_opencode"
 arch:
@@ -16,6 +16,13 @@ ingress_port: 8099
 ingress_stream: true
 panel_icon: mdi:robot
 panel_title: HA OpenCode
+
+# Direct port access (optional - for clipboard support in separate tab)
+# When enabled, access at http://homeassistant.local:7682 for full clipboard support
+ports:
+  7682/tcp: null
+ports_description:
+  7682/tcp: "Direct access port (for clipboard support - open in new tab)"
 
 # File access - Home Assistant config directory
 map:
@@ -43,6 +50,11 @@ options:
   font_size: 14
   cursor_style: "block"
   cursor_blink: false
+  
+  # Direct access port (set to enable, null to disable)
+  # When enabled, you can access the terminal directly at http://homeassistant.local:7682
+  # This allows clipboard copy/paste to work properly (bypasses ingress iframe)
+  direct_access_port: 7682
 
 schema:
   # Feature toggles
@@ -54,6 +66,9 @@ schema:
   font_size: int(10,24)
   cursor_style: list(block|underline|bar)
   cursor_blink: bool
+  
+  # Direct access
+  direct_access_port: "int(1024,65535)?"
 
 # Exclude caches from backups
 backup_exclude:
