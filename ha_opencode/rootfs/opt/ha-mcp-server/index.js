@@ -1087,9 +1087,27 @@ const TOOLS = [
           type: "object",
           description: "Target for the service call",
           properties: {
-            entity_id: { type: ["string", "array"], description: "Entity ID(s) to target" },
-            area_id: { type: ["string", "array"], description: "Area ID(s) to target" },
-            device_id: { type: ["string", "array"], description: "Device ID(s) to target" },
+            entity_id: {
+              oneOf: [
+                { type: "string" },
+                { type: "array", items: { type: "string" } }
+              ],
+              description: "Entity ID(s) to target"
+            },
+            area_id: {
+              oneOf: [
+                { type: "string" },
+                { type: "array", items: { type: "string" } }
+              ],
+              description: "Area ID(s) to target"
+            },
+            device_id: {
+              oneOf: [
+                { type: "string" },
+                { type: "array", items: { type: "string" } }
+              ],
+              description: "Device ID(s) to target"
+            },
           },
         },
         data: {
