@@ -47,7 +47,8 @@ COPY rootfs /
 
 # Make scripts executable
 RUN chmod +x /usr/local/bin/* \
-    && chmod +x /etc/s6-overlay/s6-rc.d/ha-opencode/run
+    && chmod +x /etc/s6-overlay/s6-rc.d/ha-opencode/run \
+    && chmod +x /etc/s6-overlay/s6-rc.d/ha-opencode-direct/run
 
 # Create directories for runtime data
 RUN mkdir -p /data/.local/share/opencode \

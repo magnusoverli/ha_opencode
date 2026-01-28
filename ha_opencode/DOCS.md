@@ -31,6 +31,24 @@ Configure the add-on from the **Configuration** tab in the add-on page.
 | **Font Size** | `14` | Terminal font size in pixels (10-24) |
 | **Cursor Style** | `block` | Cursor appearance: `block`, `underline`, or `bar` |
 | **Blinking Cursor** | `false` | Whether the cursor should blink |
+| **Direct Access Port** | `7682` | Port for direct access with clipboard support. Open http://homeassistant.local:7682 in a new browser tab for full copy/paste functionality. Set to empty/null to disable. |
+
+### Clipboard Support (Copy/Paste)
+
+The terminal supports copy and paste, but there's an important distinction:
+
+**Ingress Mode (sidebar):**
+- **Copy**: Select text to automatically copy to clipboard (scissors icon appears)
+- **Paste**: Right-click to paste, or use Ctrl+Shift+V
+
+**Direct Access Mode (recommended for clipboard):**
+For full clipboard support (Ctrl+C/Ctrl+V), open the terminal directly in a new browser tab:
+
+1. Enable the **Direct Access Port** option (default: 7682)
+2. Open: `http://homeassistant.local:7682` in a new browser tab
+3. Full clipboard access works in direct mode!
+
+The ingress iframe restricts clipboard access due to browser security policies. Direct access bypasses this limitation.
 
 ### Theme Previews
 
@@ -724,6 +742,19 @@ After modifying configuration files, you may need to:
 1. Validate: **Developer Tools** > **YAML** > **Check Configuration**
 2. Reload: **Developer Tools** > **YAML** > **Reload** the relevant domain
 3. Or restart Home Assistant for major changes
+
+### Clipboard not working (Copy/Paste)
+
+If you can't copy/paste text in the terminal:
+
+1. **Use Direct Access Mode**: The ingress iframe blocks clipboard access due to browser security
+2. Enable **Direct Access Port** in the add-on configuration (default: 7682)
+3. Open `http://homeassistant.local:7682` in a new browser tab
+4. Full clipboard support works in direct mode!
+
+**Quick workarounds in ingress mode:**
+- **To copy**: Select text - it's automatically copied (scissors icon appears)
+- **To paste**: Right-click, or use Ctrl+Shift+V
 
 ## Support
 
