@@ -13,6 +13,8 @@ fi
 
 DIRECT_PORT=$(bashio::config 'direct_access_port')
 
+bashio::log.info "Direct access port value: '${DIRECT_PORT}'"
+
 # Validate port
 if [ -z "${DIRECT_PORT}" ] || [ "${DIRECT_PORT}" -lt 1024 ] || [ "${DIRECT_PORT}" -gt 65535 ]; then
     bashio::log.warning "Invalid direct access port: ${DIRECT_PORT}, service disabled"
@@ -85,6 +87,7 @@ THEME_JSON=$(get_theme "${TERMINAL_THEME}")
 exec ttyd \
     -W \
     -p "${DIRECT_PORT}" \
+    --enable-clipboard \
     -t fontSize="${FONT_SIZE}" \
     -t fontWeight=normal \
     -t fontWeightBold=bold \

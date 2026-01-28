@@ -20,7 +20,7 @@ panel_title: HA OpenCode
 # Direct port access (optional - for clipboard support in separate tab)
 # When enabled, access at http://homeassistant.local:7682 for full clipboard support
 ports:
-  7682/tcp: null
+  7682/tcp: 7682
 ports_description:
   7682/tcp: "Direct access port (for clipboard support - open in new tab)"
 
