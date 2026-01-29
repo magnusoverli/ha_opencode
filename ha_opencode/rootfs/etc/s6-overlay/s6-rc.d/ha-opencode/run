@@ -126,7 +126,6 @@ exec ttyd \
     -W \
     -p 8099 \
     -t fontSize="${FONT_SIZE}" \
-    -t fontFamily="'Hack', 'DejaVu Sans Mono', 'Liberation Mono', 'Noto Sans Mono', monospace" \
     -t fontWeight=normal \
     -t fontWeightBold=bold \
     -t letterSpacing=0 \
