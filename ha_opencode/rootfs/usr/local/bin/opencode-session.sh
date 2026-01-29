@@ -72,13 +72,6 @@ echo -e "${WHITE}Working directory:${NC} ${CYAN}/homeassistant${NC}"
 echo -e "${GRAY}First time? Use ${NC}${GREEN}/connect${NC} ${GRAY}inside OpenCode to add your AI provider${NC}"
 echo -e "${GRAY}Customize AI behavior by editing ${NC}${GREEN}AGENTS.md${NC} ${GRAY}in your config folder${NC}"
 
-# Show clipboard tip if accessed via ingress (port 8099)
-if [ -n "${TTYD_PORT}" ] && [ "${TTYD_PORT}" = "8099" ]; then
-    echo -e "${YELLOW}Tip:${NC} ${GRAY}For clipboard support, open in new tab via Settings > Addons > HA OpenCode > Port${NC}"
-elif [ -n "${TTYD_PORT}" ] && [ "${TTYD_PORT}" = "7682" ]; then
-    echo -e "${GREEN}✓${NC} ${GRAY}Direct access mode - clipboard copy/paste should work with Ctrl+C/Ctrl+V${NC}"
-fi
-
 echo ""
 
 # Launch OpenCode
