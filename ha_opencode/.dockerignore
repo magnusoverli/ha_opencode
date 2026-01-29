@@ -1,0 +1,14 @@
+# Git
+.git
+.gitignore
+
+# Documentation (not needed in image)
+*.md
+!rootfs/**/*.md
+
+# Development files
+.editorconfig
+.vscode
+
+# Build artifacts
+*.log

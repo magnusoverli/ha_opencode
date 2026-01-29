@@ -6,11 +6,12 @@ build_from:
   aarch64: ghcr.io/home-assistant/aarch64-base-debian:bookworm
   amd64: ghcr.io/home-assistant/amd64-base-debian:bookworm
 args:
-  # Build arguments if needed
-  BUILD_DATE: ""
+  # Pin versions for reproducible builds (use 'latest' for auto-updates)
+  OPENCODE_VERSION: "latest"
+  TTYD_VERSION: "1.7.7"
 labels:
   org.opencontainers.image.title: "HA OpenCode"
   org.opencontainers.image.description: "AI coding agent for Home Assistant"
   org.opencontainers.image.source: "https://github.com/magnusoverli/ha_opencode"
-  org.opencontainers.image.licenses: "MIT"
+  org.opencontainers.image.licenses: "Unlicense"
   org.opencontainers.image.vendor: "Magnus Overli"
