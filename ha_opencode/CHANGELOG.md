@@ -1,6 +1,13 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 1.2.2
+
+**Bug Fix: Schema Validation Error on Upgrade**
+
+- Fixed `opencode_config` schema type from `str(0,32768)?` to `str?`
+- The HA Supervisor schema validator does not support length constraints on strings, causing "invalid value or type (must have a partial ordering)" errors that prevented the add-on from starting after upgrading to 1.2.1
+
 ## 1.2.1
 
 **New Features: mDNS Discovery + Custom OpenCode Configuration**
