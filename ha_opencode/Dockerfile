@@ -57,15 +57,18 @@ COPY rootfs /
 
 # Make scripts executable and create runtime directories
 RUN chmod +x /usr/local/bin/* \
+    && chmod +x /etc/s6-overlay/s6-rc.d/init-opencode/run \
     && chmod +x /etc/s6-overlay/s6-rc.d/ha-opencode/run \
+    && chmod +x /etc/s6-overlay/s6-rc.d/opencode-web/run \
+    && chmod +x /etc/s6-overlay/s6-rc.d/opencode-web/finish \
     && mkdir -p /data/.local/share/opencode /data/.config/opencode
 
 # Set working directory to HA config (mounted at runtime)
 WORKDIR /homeassistant
 
-# Health check - verify ttyd is running
+# Health check - verify at least one service is running (ttyd OR opencode web)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD pgrep ttyd > /dev/null || exit 1
+    CMD pgrep ttyd > /dev/null || pgrep opencode > /dev/null || exit 1
 
 # Labels for Home Assistant
 LABEL \

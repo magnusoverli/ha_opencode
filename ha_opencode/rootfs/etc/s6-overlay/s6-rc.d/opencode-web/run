@@ -1,0 +1,52 @@
+#!/command/with-contenv bashio
+# ==============================================================================
+# OpenCode Web UI Service
+# Provides native OpenCode web interface with full clipboard support
+# ==============================================================================
+
+# Set up persistent HOME
+export HOME="/data"
+export XDG_DATA_HOME="/data/.local/share"
+export XDG_CONFIG_HOME="/data/.config"
+
+# ==============================================================================
+# Read configuration options
+# ==============================================================================
+
+WEBUI_ENABLED=$(bashio::config 'webui_enabled')
+WEBUI_PASSWORD=$(bashio::config 'webui_password' || echo "")
+WEBUI_LOG_LEVEL=$(bashio::config 'webui_log_level' || echo "INFO")
+SERVE_PORT=4096
+
+# Check if web UI is enabled
+if [ "${WEBUI_ENABLED}" = "false" ]; then
+    bashio::log.info "OpenCode Web UI is disabled. Service will not start."
+    # Gracefully stop and stay down (standard s6 pattern for optional services)
+    exec s6-svc -Od .
+fi
+
+bashio::log.info "Starting OpenCode Web UI on port ${SERVE_PORT}..."
+bashio::log.info "Access at: http://<your-ha-ip>:${SERVE_PORT}"
+
+# Set password authentication if configured
+if [ -n "${WEBUI_PASSWORD}" ] && [ "${WEBUI_PASSWORD}" != "null" ]; then
+    export OPENCODE_SERVER_PASSWORD="${WEBUI_PASSWORD}"
+    bashio::log.info "Web UI password authentication enabled (username: opencode)"
+else
+    unset OPENCODE_SERVER_PASSWORD
+    bashio::log.warning "Web UI has no password. Consider setting one for security."
+fi
+
+# ==============================================================================
+# Set Node.js memory limit
+# ==============================================================================
+
+export NODE_OPTIONS="--max-old-space-size=512"
+
+# ==============================================================================
+# Start OpenCode Web Server
+# ==============================================================================
+
+SERVE_ARGS=(web --hostname "0.0.0.0" --port "${SERVE_PORT}" --log-level "${WEBUI_LOG_LEVEL}" --print-logs)
+
+exec opencode "${SERVE_ARGS[@]}"

@@ -5,12 +5,61 @@ HA OpenCode is an AI-powered coding agent that helps you edit and manage your Ho
 ## Features
 
 - **AI-Powered Editing**: Use natural language to modify your Home Assistant configuration
+- **Dual Access Modes**: Choose between sidebar integration or direct web UI
 - **Modern Terminal**: Beautiful web-based terminal with 10 theme options
+- **Native Web UI**: OpenCode's built-in web interface with full clipboard support
 - **Log Access**: View Home Assistant Core, Supervisor, and host logs
 - **Ingress Support**: Access directly from the Home Assistant sidebar
 - **Provider Agnostic**: Works with Anthropic, OpenAI, Google, and 70+ other AI providers
 - **MCP Integration**: Deep Home Assistant integration with Tools, Resources, Prompts, and Intelligence
 - **LSP Integration**: Intelligent YAML editing with entity autocomplete, hover info, and diagnostics
+
+## Two Ways to Access OpenCode
+
+HA OpenCode provides **two access methods** to suit different needs:
+
+### Method 1: Sidebar (Ingress) - Quick Access
+
+**Access via**: Home Assistant sidebar → HA OpenCode panel
+
+**Best for**: Quick edits, browsing configurations, checking logs
+
+**Features**:
+- ✅ Integrated into Home Assistant UI
+- ✅ Protected by Home Assistant authentication
+- ✅ No additional ports to manage
+- ✅ 10 customizable terminal themes
+- ⚠️ **Clipboard limitations** in Chromium browsers (Chrome, Edge, Brave)
+
+**Why clipboard doesn't work**: The sidebar uses an iframe, and browsers restrict clipboard access in iframes for security. This is a browser security policy, not something we can fix. Keyboard shortcuts (Ctrl+C/Ctrl+V) may work partially.
+
+### Method 2: Direct Web UI - Full Features
+
+**Access via**: `http://your-ha-ip:4096` (open in a new tab)
+
+**Best for**: Active coding sessions, heavy copy/paste work, external access
+
+**Features**:
+- ✅ **Full clipboard support** (copy/paste works perfectly)
+- ✅ Native OpenCode web interface (modern, purpose-built)
+- ✅ All OpenCode features available
+- ✅ Optional password authentication
+- ⚠️ Requires accessing a separate URL/port
+- ⚠️ Not integrated into HA sidebar
+
+### Which Should I Use?
+
+| Use Case | Recommended Method |
+|----------|-------------------|
+| Quick config check | Sidebar (Method 1) |
+| Reading logs | Sidebar (Method 1) |
+| Light editing (no copy/paste needed) | Sidebar (Method 1) |
+| **Heavy coding with copy/paste** | **Direct Web UI (Method 2)** |
+| **Sharing code snippets** | **Direct Web UI (Method 2)** |
+| Working with external editors | Direct Web UI (Method 2) |
+| Accessing from outside HA UI | Direct Web UI (Method 2) |
+
+**Pro tip**: Both methods access the same OpenCode instance and share the same data. You can use both interchangeably!
 
 ## Configuration
 
@@ -23,7 +72,9 @@ Configure the app from the **Configuration** tab in the app page.
 | **Enable MCP Home Assistant Integration** | `false` | Enable the Model Context Protocol (MCP) server for deep Home Assistant integration. Includes 19 tools, 9 resources, 6 guided prompts, and an intelligence layer for anomaly detection and automation suggestions. |
 | **Enable LSP Home Assistant Integration** | `true` | Enable the Language Server Protocol (LSP) server for intelligent YAML editing. Provides entity/service autocomplete, hover documentation, diagnostics for unknown entities, and go-to-definition for !include tags. |
 
-### Terminal Appearance
+### Terminal Appearance (Sidebar Only)
+
+These options apply to the sidebar terminal view only, not the direct Web UI.
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -31,6 +82,14 @@ Configure the app from the **Configuration** tab in the app page.
 | **Font Size** | `14` | Terminal font size in pixels (10-24) |
 | **Cursor Style** | `block` | Cursor appearance: `block`, `underline`, or `bar` |
 | **Blinking Cursor** | `false` | Whether the cursor should blink |
+
+### OpenCode Web UI (Direct Access)
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| **Enable OpenCode Web UI** | `true` | Enable the native OpenCode web interface on port 4096. Provides full clipboard support. |
+| **Web UI Password** | *(empty)* | Optional password to protect the Web UI (username: `opencode`). Leave empty for no authentication. |
+| **Web UI Log Level** | `INFO` | Server log verbosity: `DEBUG`, `INFO`, `WARN`, or `ERROR` |
 
 ### Theme Previews
 
@@ -49,7 +108,15 @@ Configure the app from the **Configuration** tab in the app page.
 
 ### 1. Open the App
 
-Click on **HA OpenCode** in the Home Assistant sidebar to open the terminal.
+You have two options:
+
+**Option A: Sidebar (Quick Access)**
+- Click on **HA OpenCode** in the Home Assistant sidebar
+
+**Option B: Direct Web UI (Full Clipboard Support)**
+- Open a new browser tab
+- Navigate to: `http://your-home-assistant-ip:4096`
+- For example: `http://192.168.1.100:4096` or `http://homeassistant.local:4096`
 
 ### 2. Configure Your AI Provider
 
@@ -683,8 +750,12 @@ Your OpenCode sessions and API credentials are stored in `/data/` within the app
 - This app has access to your Home Assistant configuration files (read/write)
 - This app can view system logs (Core, Supervisor, Host)
 - When MCP is enabled, OpenCode can query entities and call services
-- Access is protected by Home Assistant authentication via ingress
-- Only users with access to the HA OpenCode panel can use this app
+- **Sidebar access** is protected by Home Assistant authentication via ingress
+- **Direct Web UI access** (port 4096) has optional password protection
+  - Set a password in the configuration if you expose this port to the internet
+  - On local networks, password may not be necessary
+  - Username is always `opencode` when password is enabled
+- Only users with access to the HA OpenCode panel can use the sidebar view
 
 ## Troubleshooting
 
@@ -703,6 +774,19 @@ Check if you have enough memory. OpenCode requires at least 256MB of RAM, 512MB 
 1. Try refreshing the page
 2. Clear your browser cache
 3. Check the app logs in the Home Assistant Supervisor
+
+### Web UI (port 4096) not accessible
+
+1. Make sure **Enable OpenCode Web UI** is turned on in Configuration
+2. Verify the app has started successfully (check logs)
+3. Try accessing from the same machine first: `http://localhost:4096`
+4. Check your firewall settings allow port 4096
+5. If using a reverse proxy, ensure port 4096 is properly forwarded
+
+### Clipboard not working
+
+- **In the sidebar**: This is a browser limitation with iframes. Use the **Direct Web UI** (port 4096) instead for full clipboard support
+- **In the Direct Web UI**: Clipboard should work fully. If not, check browser permissions and try allowing clipboard access for the site
 
 ### MCP not working
 

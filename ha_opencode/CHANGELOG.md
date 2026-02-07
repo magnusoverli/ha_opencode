@@ -1,6 +1,28 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 1.2.0
+
+**Major Feature: Dual UI Support - Sidebar + Direct Web UI**
+
+- Added native OpenCode Web UI on port 4096 for **full clipboard support**
+- Fixed long-standing clipboard limitation in Chromium browsers when using sidebar (ingress iframe)
+- Implemented dual-access architecture: sidebar for quick access, direct Web UI for active coding
+- Refactored to s6-overlay multi-service architecture:
+  - `init-opencode`: oneshot initialization service (config generation, file deployment)
+  - `ha-opencode`: longrun terminal service (ttyd + ingress on port 8099)
+  - `opencode-web`: longrun web UI service (`opencode web` on port 4096)
+- Added configuration options:
+  - `webui_enabled` (default: true) - enable/disable the Web UI
+  - `webui_password` - optional password protection for direct access
+  - `webui_log_level` - server logging verbosity (DEBUG/INFO/WARN/ERROR)
+- Updated documentation with comprehensive dual-access guide
+- Health check now monitors both services (OR logic - either service running = healthy)
+- Web UI provides the native OpenCode browser interface with full copy/paste functionality
+- Inspired by analysis of community forks (szampardi/ha_opencode)
+
+**Why This Matters**: Browser security policies restrict clipboard access in iframes (used by HA ingress). The direct Web UI bypasses this limitation, enabling full clipboard functionality for users who need it, while keeping the convenient sidebar access for quick tasks.
+
 ## 1.1.8
 
 **New Feature: Prettier YAML Formatter + Comprehensive Style Guide**

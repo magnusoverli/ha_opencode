@@ -23,3 +23,15 @@ configuration:
   cursor_blink:
     name: "Blinking Cursor"
     description: "Whether the terminal cursor should blink."
+  
+  webui_enabled:
+    name: "Enable OpenCode Web UI"
+    description: "Enable the native OpenCode web interface on port 4096. Access directly at http://your-ha-ip:4096 for full clipboard support (copy/paste works fully, unlike the sidebar view which has clipboard limitations in Chromium browsers)."
+  
+  webui_password:
+    name: "Web UI Password"
+    description: "Optional password to protect the direct Web UI (username: opencode). Leave empty for no authentication. The sidebar view is always protected by Home Assistant authentication."
+  
+  webui_log_level:
+    name: "Web UI Log Level"
+    description: "Log verbosity for the OpenCode Web UI server. DEBUG provides the most detailed information."

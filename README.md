@@ -24,8 +24,12 @@ through MCP (Model Context Protocol).
 
 - **AI-Powered Editing** — Use natural language to modify your Home Assistant
   configuration
+- **Dual Access Modes** — Choose sidebar integration (quick access) or direct Web
+  UI (full clipboard support)
 - **Modern Web Terminal** — Beautiful terminal with 10 theme options, accessible
   from the HA sidebar
+- **Native Web Interface** — OpenCode's built-in web UI with full copy/paste
+  support on port 4096
 - **Provider Agnostic** — Works with Anthropic, OpenAI, Google, and 70+ other
   AI providers
 - **MCP Integration** — 22 tools, 9 resources, and 6 guided prompts for deep HA

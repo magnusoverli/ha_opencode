@@ -1,7 +1,7 @@
 ---
 name: "HA OpenCode"
 description: "AI coding agent for editing Home Assistant configuration with deep MCP integration and LSP support"
-version: "1.1.8"
+version: "1.2.0"
 slug: "ha_opencode"
 image: "ghcr.io/magnusoverli/ha_opencode/{arch}"
 url: "https://github.com/magnusoverli/ha_opencode"
@@ -17,6 +17,12 @@ ingress_port: 8099
 ingress_stream: true
 panel_icon: mdi:robot
 panel_title: HA OpenCode
+
+# Direct access port for OpenCode Web UI
+ports:
+  4096/tcp: 4096
+ports_description:
+  4096/tcp: "OpenCode Web UI (direct access with full clipboard support)"
 
 # File access - Home Assistant config directory
 map:
@@ -44,6 +50,11 @@ options:
   font_size: 14
   cursor_style: "block"
   cursor_blink: false
+  
+  # OpenCode Web UI (direct access with clipboard support)
+  webui_enabled: true
+  webui_password: ""
+  webui_log_level: "INFO"
 
 schema:
   # Feature toggles
@@ -55,6 +66,11 @@ schema:
   font_size: int(10,24)
   cursor_style: list(block|underline|bar)
   cursor_blink: bool
+  
+  # OpenCode Web UI
+  webui_enabled: bool
+  webui_password: str?
+  webui_log_level: list(DEBUG|INFO|WARN|ERROR)
 
 # Exclude caches from backups
 backup_exclude:
