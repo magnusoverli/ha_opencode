@@ -24,6 +24,10 @@ configuration:
     name: "Blinking Cursor"
     description: "Whether the terminal cursor should blink."
   
+  opencode_config:
+    name: "Custom OpenCode Configuration (JSON)"
+    description: "Advanced: Paste a JSON object to customize OpenCode beyond the standard options. Allows setting default model, custom agents, tool permissions, keybinds, and more. Must be valid JSON. See https://opencode.ai/docs/config for the full schema. Leave empty to use defaults."
+  
   webui_enabled:
     name: "Enable OpenCode Web UI"
     description: "Enable the native OpenCode web interface on port 4096. Access directly at http://your-ha-ip:4096 for full clipboard support (copy/paste works fully, unlike the sidebar view which has clipboard limitations in Chromium browsers)."

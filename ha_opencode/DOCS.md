@@ -92,6 +92,58 @@ These options apply to the sidebar terminal view only, not the direct Web UI.
 | **Web UI Log Level** | `INFO` | Server log verbosity: `DEBUG`, `INFO`, `WARN`, or `ERROR` |
 | **Enable mDNS Discovery** | `false` | Advertise the Web UI via mDNS. Access via `opencode.local` instead of IP address. |
 
+### Advanced: Custom OpenCode Configuration
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| **Custom OpenCode Configuration (JSON)** | *(empty)* | Paste a JSON object to customize OpenCode beyond the standard options. Must be valid JSON. Leave empty to use defaults. |
+
+This is a power-user feature that gives you access to OpenCode's full configuration schema. The JSON you provide is written to `config.json`, which OpenCode merges with the add-on's generated configuration.
+
+**Example: Set a default model and custom tool permissions**
+
+```json
+{
+  "model": "anthropic/claude-sonnet-4-5",
+  "permission": {
+    "edit": "ask",
+    "bash": "ask"
+  }
+}
+```
+
+**Example: Add custom slash commands**
+
+```json
+{
+  "command": {
+    "validate": {
+      "template": "Validate my Home Assistant configuration and report any issues.",
+      "description": "Validate HA config"
+    },
+    "backup-check": {
+      "template": "Check when my last backup was created and if my configuration has changed since then.",
+      "description": "Check backup status"
+    }
+  }
+}
+```
+
+**Example: Define a specialized agent**
+
+```json
+{
+  "agent": {
+    "security-reviewer": {
+      "description": "Reviews Home Assistant setup for security issues",
+      "prompt": "You are a Home Assistant security auditor. Review the configuration for exposed ports, weak authentication, insecure integrations, and missing security best practices."
+    }
+  }
+}
+```
+
+For the full configuration schema, see the [OpenCode Config Documentation](https://opencode.ai/docs/config).
+
 ### Theme Previews
 
 - **Breeze** - KDE Konsole default, clean and professional

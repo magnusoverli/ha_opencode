@@ -51,6 +51,9 @@ options:
   cursor_style: "block"
   cursor_blink: false
   
+  # Advanced: custom OpenCode configuration (JSON)
+  opencode_config: ""
+  
   # OpenCode Web UI (direct access with clipboard support)
   webui_enabled: true
   webui_password: ""
@@ -67,6 +70,9 @@ schema:
   font_size: int(10,24)
   cursor_style: list(block|underline|bar)
   cursor_blink: bool
+  
+  # Advanced
+  opencode_config: str(0,32768)?
   
   # OpenCode Web UI
   webui_enabled: bool

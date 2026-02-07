@@ -59,3 +59,33 @@ jq --argjson mcp "${MCP_BOOL}" --argjson lsp_disabled "${LSP_DISABLED}" '
 ' /opt/ha-mcp-server/opencode-ha.json > /data/.config/opencode/opencode.json
 
 bashio::log.info "OpenCode configuration generated successfully"
+
+# ==============================================================================
+# Inject custom OpenCode config.json (optional, for advanced users)
+# This allows power users to provide custom OpenCode configuration as a JSON
+# string via the add-on config UI. It is written to config.json which OpenCode
+# merges with opencode.json (our MCP/LSP config) at startup.
+# See https://opencode.ai/docs/config for the full schema.
+# ==============================================================================
+
+OPTIONS_FILE="/data/options.json"
+CONFIG_TARGET="/data/.config/opencode/config.json"
+
+if [ -f "${OPTIONS_FILE}" ]; then
+    OPENCODE_CONFIG_JSON=$(jq -r '.opencode_config // empty' "${OPTIONS_FILE}")
+    if [ -n "${OPENCODE_CONFIG_JSON}" ]; then
+        # Validate that the provided string is valid JSON
+        if ! printf '%s' "${OPENCODE_CONFIG_JSON}" | jq -e . >/dev/null 2>&1; then
+            bashio::log.error "Invalid JSON in opencode_config option. Skipping custom config."
+            bashio::log.error "Please check your JSON syntax in the Configuration tab."
+            # Remove stale config.json so a previously valid config doesn't persist
+            rm -f "${CONFIG_TARGET}"
+        else
+            printf '%s' "${OPENCODE_CONFIG_JSON}" > "${CONFIG_TARGET}"
+            bashio::log.info "Custom OpenCode config.json written from add-on configuration"
+        fi
+    else
+        # No custom config provided - remove any stale config.json from a previous run
+        rm -f "${CONFIG_TARGET}"
+    fi
+fi
