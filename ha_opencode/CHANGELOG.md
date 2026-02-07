@@ -1,6 +1,20 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 1.2.1
+
+**New Features: mDNS Discovery + Custom OpenCode Configuration**
+
+- Added mDNS discovery option for the OpenCode Web UI
+  - Enable `webui_mdns` to advertise on your local network
+  - Access via `opencode.local` instead of IP address
+- Added custom OpenCode configuration injection (`opencode_config`)
+  - Paste a JSON object in the Configuration tab to customize OpenCode beyond standard options
+  - Enables: default model selection, custom agents, slash commands, tool permissions, keybinds, formatters, and more
+  - Full JSON validation with clear error logging for invalid input
+  - Automatic cleanup of stale configuration when cleared
+  - See [OpenCode Config Documentation](https://opencode.ai/docs/config) for the full schema
+
 ## 1.2.0
 
 **Major Feature: Dual UI Support - Sidebar + Direct Web UI**
