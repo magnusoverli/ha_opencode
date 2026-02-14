@@ -14,4 +14,4 @@ labels:
   org.opencontainers.image.description: "AI coding agent for Home Assistant"
   org.opencontainers.image.source: "https://github.com/okliam/ha_opencode"
   org.opencontainers.image.licenses: "Unlicense"
-  org.opencontainers.image.vendor: "Oleg"
+  org.opencontainers.image.vendor: "Magnus Overli"

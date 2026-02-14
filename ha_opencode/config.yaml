@@ -3,7 +3,7 @@ name: "HA OpenCode"
 description: "AI coding agent for editing Home Assistant configuration with deep MCP integration and LSP support"
 version: "1.2.3"
 slug: "ha_opencode"
-image: "ghcr.io/okliam/ha_opencode/{arch}"
+image: "ghcr.io/magnusoverli/ha_opencode/{arch}"
 url: "https://github.com/okliam/ha_opencode"
 arch:
   - aarch64
