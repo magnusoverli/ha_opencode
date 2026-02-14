@@ -6,6 +6,171 @@
 
 bashio::log.info "Initializing HA OpenCode..."
 
+# ==============================================================================
+# Read configuration options early (needed for CPU detection)
+# ==============================================================================
+
+CPU_MODE_CONFIG=$(bashio::config 'cpu_mode' || echo "auto")
+MCP_ENABLED=$(bashio::config 'mcp_enabled')
+LSP_ENABLED=$(bashio::config 'lsp_enabled' || echo "true")
+
+bashio::log.info "Configuration: MCP=${MCP_ENABLED} LSP=${LSP_ENABLED} CPU_MODE=${CPU_MODE_CONFIG}"
+
+# ==============================================================================
+# CPU Capability Detection - Select appropriate OpenCode binary
+# OpenCode provides baseline binaries for CPUs without AVX2 support
+# ==============================================================================
+
+# Run CPU detection (respects config override)
+detect_cpu_capabilities() {
+    local cpu_mode_config="${CPU_MODE_CONFIG:-auto}"
+    
+    if [ "${cpu_mode_config}" = "baseline" ]; then
+        echo "baseline" > /data/.cpu_mode
+        bashio::log.info "CPU mode forced to baseline by configuration"
+        return
+    elif [ "${cpu_mode_config}" = "regular" ]; then
+        echo "regular" > /data/.cpu_mode
+        bashio::log.info "CPU mode forced to regular by configuration"
+        return
+    fi
+    
+    local cpu_flags=""
+    local has_avx2=false
+    local has_avx=false
+    
+    if [ -f /proc/cpuinfo ]; then
+        cpu_flags=$(cat /proc/cpuinfo | grep -oP 'flags\s*:\s*\K.*' | head -1)
+    fi
+    
+    if echo "${cpu_flags}" | grep -q '\bavx2\b'; then
+        has_avx2=true
+    fi
+    
+    if echo "${cpu_flags}" | grep -q '\bavx\b'; then
+        has_avx=true
+    fi
+    
+    if [ "${has_avx2}" = "true" ]; then
+        echo "regular" > /data/.cpu_mode
+        bashio::log.info "CPU supports AVX2 - using regular OpenCode binary"
+    elif [ "${has_avx}" = "true" ]; then
+        echo "baseline" > /data/.cpu_mode
+        bashio::log.info "CPU has AVX but not AVX2 - using baseline OpenCode binary"
+    else
+        echo "baseline" > /data/.cpu_mode
+        bashio::log.warning "CPU lacks AVX support - using baseline OpenCode binary (limited functionality)"
+    fi
+}
+
+# Run CPU detection
+detect_cpu_capabilities
+
+# ==============================================================================
+# Install/Verify OpenCode binary based on CPU capabilities
+# ==============================================================================
+
+install_opencode_binary() {
+    local cpu_mode
+    cpu_mode=$(cat /data/.cpu_mode 2>/dev/null || echo "unknown")
+    
+    # Determine the correct package based on architecture and CPU mode
+    local opencode_package
+    local arch
+    
+    # Detect architecture
+    case $(uname -m) in
+        x86_64)
+            arch="x64"
+            ;;
+        aarch64|arm64)
+            arch="arm64"
+            ;;
+        *)
+            bashio::log.warning "Unknown architecture: $(uname -m), using x64"
+            arch="x64"
+            ;;
+    esac
+    
+    # Select appropriate package based on CPU mode
+    if [ "${cpu_mode}" = "baseline" ]; then
+        # Check if baseline is already installed
+        if [ -d "/usr/local/lib/node_modules/opencode-linux-${arch}-baseline" ]; then
+            bashio::log.info "OpenCode baseline binary already installed"
+        else
+            bashio::log.info "Installing OpenCode baseline binary for ${arch}..."
+            npm install -g "opencode-linux-${arch}-baseline" --force 2>/dev/null || \
+                npm install -g opencode-ai --force 2>/dev/null || true
+            bashio::log.info "OpenCode baseline binary installed"
+        fi
+        
+        # Create wrapper to use baseline binary
+        create_opencode_wrapper "baseline"
+    else
+        # Regular OpenCode (AVX2)
+        if command -v opencode &>/dev/null; then
+            bashio::log.info "OpenCode regular binary already installed"
+        else
+            bashio::log.info "Installing OpenCode regular binary..."
+            npm install -g opencode-ai 2>/dev/null || true
+            bashio::log.info "OpenCode regular binary installed"
+        fi
+    fi
+}
+
+# Create wrapper script that selects the right binary
+create_opencode_wrapper() {
+    local mode="$1"
+    local wrapper_path="/usr/local/bin/opencode"
+    
+    # Backup original if exists and not a wrapper
+    if [ -f "${wrapper_path}" ] && [ ! -L "${wrapper_path}" ]; then
+        # Check if it's already our wrapper
+        if ! grep -q "CPU_MODE" "${wrapper_path}" 2>/dev/null; then
+            mv "${wrapper_path}" "${wrapper_path}.original"
+        fi
+    fi
+    
+    # Create wrapper script
+    cat > "${wrapper_path}" << 'EOF'
+#!/bin/bash
+# OpenCode wrapper - selects correct binary based on CPU capabilities
+
+CPU_MODE=$(cat /data/.cpu_mode 2>/dev/null || echo "regular")
+ARCH=$(uname -m)
+
+# For baseline mode, try to use baseline binary
+if [ "${CPU_MODE}" = "baseline" ]; then
+    case "${ARCH}" in
+        x86_64)
+            BASELINE_BIN="/usr/local/lib/node_modules/opencode-linux-x64-baseline/bin/opencode"
+            ;;
+        aarch64|arm64)
+            BASELINE_BIN="/usr/local/lib/node_modules/opencode-linux-arm64-baseline/bin/opencode"
+            ;;
+    esac
+    
+    if [ -x "${BASELINE_BIN}" ]; then
+        exec "${BASELINE_BIN}" "$@"
+    fi
+fi
+
+# Fallback to regular/opencode-ai
+if [ -x "/usr/local/lib/node_modules/opencode-ai/bin/opencode" ]; then
+    exec /usr/local/lib/node_modules/opencode-ai/bin/opencode "$@"
+fi
+
+# Last resort - try system opencode
+exec opencode "$@"
+EOF
+    
+    chmod +x "${wrapper_path}"
+    bashio::log.info "Created OpenCode wrapper for ${mode} mode"
+}
+
+# Run OpenCode installation
+install_opencode_binary
+
 # Set up persistent HOME for all services
 export HOME="/data"
 export XDG_DATA_HOME="/data/.local/share"
@@ -41,10 +206,7 @@ fi
 # Read configuration options
 # ==============================================================================
 
-MCP_ENABLED=$(bashio::config 'mcp_enabled')
-LSP_ENABLED=$(bashio::config 'lsp_enabled' || echo "true")
-
-bashio::log.info "Configuration: MCP=${MCP_ENABLED} LSP=${LSP_ENABLED}"
+bashio::log.info "Configuration: MCP=${MCP_ENABLED} LSP=${LSP_ENABLED} CPU_MODE=${CPU_MODE_CONFIG}"
 
 # ==============================================================================
 # Generate OpenCode configuration file
