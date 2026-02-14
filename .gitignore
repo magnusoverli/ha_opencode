@@ -19,3 +19,6 @@ npm-debug.log*
 
 # Build artifacts
 *.tgz
+
+# Session files
+session-*.md
