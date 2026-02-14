@@ -28,10 +28,12 @@ GRAY='\033[38;2;127;140;141m'
 BOLD='\033[1m'
 NC='\033[0m'
 
+# Force baseline version for CPU compatibility if needed
 CPU_MODE=$(cat /data/.cpu_mode 2>/dev/null || echo "unknown")
 CPU_INFO=""
 if [ "${CPU_MODE}" = "baseline" ]; then
     CPU_INFO=" ${YELLOW}(baseline CPU mode)${NC}"
+    export OPENCODE_BIN_PATH="/usr/local/lib/node_modules/opencode-linux-x64-baseline/bin/opencode"
 fi
 
 # Change to Home Assistant config directory
