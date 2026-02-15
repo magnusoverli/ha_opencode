@@ -2130,8 +2130,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_error_log": {
-        // Use HA Core API via Supervisor proxy
-        const log = await callHA("/error_log");
+        // Use HA Core API via Supervisor proxy - correct endpoint path
+        const log = await callHA("/core/api/error_log");
         const lines = args?.lines || 100;
         const logLines = log.split("\n").slice(-lines).join("\n");
         return makeCompatibleResponse({

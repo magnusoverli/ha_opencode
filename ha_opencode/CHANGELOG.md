@@ -6,7 +6,9 @@ All notable changes to this project will be documented in this file.
 **Bug Fix: MCP Error Log Tool (404 Error)**
 
 ### Fixed
-- Fixed `get_error_log` MCP tool by using the correct Supervisor API proxy path.
+- Fixed `get_error_log` MCP tool by using the correct Supervisor API proxy path `/core/api/error_log` instead of `/error_log`
+- Fixed `get_system_log` MCP tool by using the correct Supervisor API proxy path `/core/api/system_log` instead of `/system_log`
+- Both fixes align the MCP server implementation with the working `ha-logs` script approach
 - Cleaned up redundant API helper functions in the MCP server.
 
 ## 1.2.3
