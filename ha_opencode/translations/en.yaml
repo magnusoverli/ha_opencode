@@ -8,6 +8,10 @@ configuration:
     name: "Enable LSP (Language Server Protocol)"
     description: "Enable Language Server Protocol support for intelligent code assistance. Provides real-time diagnostics, auto-completion, and validation for Home Assistant YAML configuration files."
   
+  cpu_mode:
+    name: "CPU Mode"
+    description: "Controls which OpenCode binary is used. 'auto' detects your CPU capabilities automatically (recommended). 'baseline' forces the baseline binary for older CPUs without AVX2 support. 'regular' forces the standard binary."
+  
   terminal_theme:
     name: "Terminal Theme"
     description: "Color scheme for the terminal. Choose a theme that's easy on your eyes."
@@ -23,3 +27,7 @@ configuration:
   cursor_blink:
     name: "Blinking Cursor"
     description: "Whether the terminal cursor should blink."
+  
+  opencode_config:
+    name: "Custom OpenCode Configuration (JSON)"
+    description: "Advanced: Paste a JSON object to customize OpenCode's own configuration (providers, keybindings, etc.). This is merged with the add-on's built-in config. Leave empty for defaults. See https://opencode.ai/docs/config for the full schema."

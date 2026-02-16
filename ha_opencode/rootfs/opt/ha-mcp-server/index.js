@@ -104,9 +104,6 @@ function sendLog(level, logger, data) {
 // HOME ASSISTANT API HELPERS
 // ============================================================================
 
-// Base URL for Supervisor API proxy (most endpoints)
-const HA_CORE_API = "http://supervisor/core";
-
 /**
  * Call Home Assistant via Supervisor API proxy
  * Used for most endpoints that are proxied through supervisor
@@ -138,42 +135,6 @@ async function callHA(endpoint, method = "GET", body = null) {
   if (contentType && contentType.includes("application/json")) {
     const result = await response.json();
     sendLog("debug", "ha-api", { action: "response", endpoint, success: true });
-    return result;
-  }
-  return response.text();
-}
-
-/**
- * Call Home Assistant Core API directly
- * Used for endpoints not available through the Supervisor API proxy (e.g., /api/error_log)
- */
-async function callHACore(endpoint, method = "GET", body = null) {
-  sendLog("debug", "ha-core-api", { action: "request", endpoint, method });
-  
-  const options = {
-    method,
-    headers: {
-      "Authorization": `Bearer ${SUPERVISOR_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-  };
-
-  if (body) {
-    options.body = JSON.stringify(body);
-  }
-
-  const response = await fetch(`${HA_CORE_API}${endpoint}`, options);
-  
-  if (!response.ok) {
-    const text = await response.text();
-    sendLog("error", "ha-core-api", { action: "error", endpoint, status: response.status, error: text });
-    throw new Error(`HA Core API error (${response.status}): ${text}`);
-  }
-
-  const contentType = response.headers.get("content-type");
-  if (contentType && contentType.includes("application/json")) {
-    const result = await response.json();
-    sendLog("debug", "ha-core-api", { action: "response", endpoint, success: true });
     return result;
   }
   return response.text();
@@ -2169,8 +2130,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_error_log": {
-        // Use HA Core API directly for error_log endpoint (not available via Supervisor proxy)
-        const log = await callHACore("/api/error_log");
+        // Use HA Core API via Supervisor proxy - correct endpoint path
+        const log = await callHA("/core/api/error_log");
         const lines = args?.lines || 100;
         const logLines = log.split("\n").slice(-lines).join("\n");
         return makeCompatibleResponse({

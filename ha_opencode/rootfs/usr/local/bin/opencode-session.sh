@@ -28,6 +28,15 @@ GRAY='\033[38;2;127;140;141m'
 BOLD='\033[1m'
 NC='\033[0m'
 
+# Read addon version and CPU mode written by init-opencode
+CPU_MODE=$(cat /data/.cpu_mode 2>/dev/null || echo "unknown")
+ADDON_VERSION=$(cat /data/.addon_version 2>/dev/null || echo "unknown")
+CPU_INFO=""
+if [ "${CPU_MODE}" = "baseline" ]; then
+    CPU_INFO=" ${YELLOW}(baseline CPU mode)${NC}"
+    export OPENCODE_BIN_PATH="/usr/local/lib/node_modules/opencode-linux-x64-baseline/bin/opencode"
+fi
+
 # Change to Home Assistant config directory
 cd /homeassistant
 
@@ -44,7 +53,7 @@ fi
 show_banner() {
     clear
     echo ""
-    echo -e "${BLUE}${BOLD}HA OpenCode${NC} ${GRAY}v1.0${NC}"
+    echo -e "${BLUE}${BOLD}HA OpenCode${NC} ${GRAY}v${ADDON_VERSION}${NC}${CPU_INFO}"
     echo -e "${GRAY}AI-powered coding agent for Home Assistant${NC}"
     echo ""
     echo -e "${GRAY}────────────────────────────────────────────────────────────${NC}"

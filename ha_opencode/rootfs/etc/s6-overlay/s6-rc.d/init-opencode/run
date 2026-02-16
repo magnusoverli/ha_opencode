@@ -1,0 +1,246 @@
+#!/command/with-contenv bashio
+# ==============================================================================
+# HA OpenCode - Initialization Service (oneshot)
+# Runs once at container startup to prepare the environment
+# ==============================================================================
+
+bashio::log.info "Initializing HA OpenCode..."
+
+# Save addon version for the terminal banner
+bashio::addon.version > /data/.addon_version
+
+# ==============================================================================
+# Read configuration options
+# ==============================================================================
+
+CPU_MODE_CONFIG=$(bashio::config 'cpu_mode' || echo "auto")
+MCP_ENABLED=$(bashio::config 'mcp_enabled')
+LSP_ENABLED=$(bashio::config 'lsp_enabled' || echo "true")
+
+bashio::log.info "Configuration: MCP=${MCP_ENABLED} LSP=${LSP_ENABLED} CPU_MODE=${CPU_MODE_CONFIG}"
+
+# ==============================================================================
+# CPU Capability Detection - Select appropriate OpenCode binary
+# OpenCode provides baseline binaries for CPUs without AVX2 support
+# ==============================================================================
+
+detect_cpu_capabilities() {
+    local cpu_mode_config="${CPU_MODE_CONFIG:-auto}"
+    
+    if [ "${cpu_mode_config}" = "baseline" ]; then
+        echo "baseline" > /data/.cpu_mode
+        bashio::log.info "CPU mode forced to baseline by configuration"
+        return
+    elif [ "${cpu_mode_config}" = "regular" ]; then
+        echo "regular" > /data/.cpu_mode
+        bashio::log.info "CPU mode forced to regular by configuration"
+        return
+    fi
+    
+    local cpu_flags=""
+    local has_avx2=false
+    local has_avx=false
+    
+    if [ -f /proc/cpuinfo ]; then
+        cpu_flags=$(cat /proc/cpuinfo | grep -oP 'flags\s*:\s*\K.*' | head -1)
+    fi
+    
+    if echo "${cpu_flags}" | grep -q '\bavx2\b'; then
+        has_avx2=true
+    fi
+    
+    if echo "${cpu_flags}" | grep -q '\bavx\b'; then
+        has_avx=true
+    fi
+    
+    if [ "${has_avx2}" = "true" ]; then
+        echo "regular" > /data/.cpu_mode
+        bashio::log.info "CPU supports AVX2 - using regular OpenCode binary"
+    elif [ "${has_avx}" = "true" ]; then
+        echo "baseline" > /data/.cpu_mode
+        bashio::log.info "CPU has AVX but not AVX2 - using baseline OpenCode binary"
+    else
+        echo "baseline" > /data/.cpu_mode
+        bashio::log.warning "CPU lacks AVX support - using baseline OpenCode binary (limited functionality)"
+    fi
+}
+
+# Run CPU detection
+detect_cpu_capabilities
+
+# ==============================================================================
+# Install/Verify OpenCode binary based on CPU capabilities
+# ==============================================================================
+
+install_opencode_binary() {
+    local cpu_mode
+    cpu_mode=$(cat /data/.cpu_mode 2>/dev/null || echo "unknown")
+    
+    # Determine the correct package based on architecture and CPU mode
+    local arch
+    
+    case $(uname -m) in
+        x86_64)
+            arch="x64"
+            ;;
+        aarch64|arm64)
+            arch="arm64"
+            ;;
+        *)
+            bashio::log.warning "Unknown architecture: $(uname -m), using x64"
+            arch="x64"
+            ;;
+    esac
+    
+    # Select appropriate package based on CPU mode
+    if [ "${cpu_mode}" = "baseline" ]; then
+        if [ -d "/usr/local/lib/node_modules/opencode-linux-${arch}-baseline" ]; then
+            bashio::log.info "OpenCode baseline binary already installed"
+        else
+            bashio::log.info "Installing OpenCode baseline binary for ${arch}..."
+            npm install -g "opencode-linux-${arch}-baseline" --force 2>/dev/null || \
+                npm install -g opencode-ai --force 2>/dev/null || true
+            bashio::log.info "OpenCode baseline binary installed"
+        fi
+        
+        # Create wrapper to use baseline binary
+        create_opencode_wrapper "baseline"
+    else
+        if command -v opencode &>/dev/null; then
+            bashio::log.info "OpenCode regular binary already installed"
+        else
+            bashio::log.info "Installing OpenCode regular binary..."
+            npm install -g opencode-ai 2>/dev/null || true
+            bashio::log.info "OpenCode regular binary installed"
+        fi
+    fi
+}
+
+# Create wrapper script that selects the right binary
+create_opencode_wrapper() {
+    local mode="$1"
+    local wrapper_path="/usr/local/bin/opencode"
+    
+    # Backup original if exists and not already a wrapper
+    if [ -f "${wrapper_path}" ] && [ ! -L "${wrapper_path}" ]; then
+        if ! grep -q "CPU_MODE" "${wrapper_path}" 2>/dev/null; then
+            mv "${wrapper_path}" "${wrapper_path}.original"
+        fi
+    fi
+    
+    # Create wrapper script
+    cat > "${wrapper_path}" << 'EOF'
+#!/bin/bash
+# OpenCode wrapper - selects correct binary based on CPU capabilities
+
+CPU_MODE=$(cat /data/.cpu_mode 2>/dev/null || echo "regular")
+ARCH=$(uname -m)
+
+# For baseline mode, try to use baseline binary
+if [ "${CPU_MODE}" = "baseline" ]; then
+    case "${ARCH}" in
+        x86_64)
+            BASELINE_BIN="/usr/local/lib/node_modules/opencode-linux-x64-baseline/bin/opencode"
+            ;;
+        aarch64|arm64)
+            BASELINE_BIN="/usr/local/lib/node_modules/opencode-linux-arm64-baseline/bin/opencode"
+            ;;
+    esac
+    
+    if [ -x "${BASELINE_BIN}" ]; then
+        exec "${BASELINE_BIN}" "$@"
+    fi
+fi
+
+# Fallback to regular/opencode-ai
+if [ -x "/usr/local/lib/node_modules/opencode-ai/bin/opencode" ]; then
+    exec /usr/local/lib/node_modules/opencode-ai/bin/opencode "$@"
+fi
+
+# Last resort - try system opencode
+exec opencode "$@"
+EOF
+    
+    chmod +x "${wrapper_path}"
+    bashio::log.info "Created OpenCode wrapper for ${mode} mode"
+}
+
+# Run OpenCode installation
+install_opencode_binary
+
+# Set up persistent HOME for all services
+export HOME="/data"
+export XDG_DATA_HOME="/data/.local/share"
+export XDG_CONFIG_HOME="/data/.config"
+
+# Ensure data directories exist
+mkdir -p /data/.local/share/opencode
+mkdir -p /data/.config/opencode
+
+# ==============================================================================
+# Deploy AGENTS.md to Home Assistant config directory (first install only)
+# Users can customize this file using File Editor or any text editor
+# ==============================================================================
+
+if [ ! -f "/homeassistant/AGENTS.md" ]; then
+    cp /opt/ha-mcp-server/AGENTS.md /homeassistant/AGENTS.md
+    bashio::log.info "Deployed default AGENTS.md to /homeassistant/"
+    bashio::log.info "You can customize AI instructions by editing AGENTS.md"
+fi
+
+# ==============================================================================
+# Deploy Prettier config for HA YAML formatting (first install only)
+# Prettier auto-formats YAML files written by OpenCode to follow HA conventions
+# Users can customize .prettierrc.yaml to adjust formatting preferences
+# ==============================================================================
+
+if [ ! -f "/homeassistant/.prettierrc.yaml" ]; then
+    cp /opt/ha-mcp-server/.prettierrc.yaml /homeassistant/.prettierrc.yaml
+    bashio::log.info "Deployed default .prettierrc.yaml for HA YAML formatting"
+fi
+
+# ==============================================================================
+# Generate OpenCode configuration file
+# ==============================================================================
+
+MCP_BOOL=$([ "${MCP_ENABLED}" = "true" ] && echo "true" || echo "false")
+LSP_DISABLED=$([ "${LSP_ENABLED}" = "true" ] && echo "false" || echo "true")
+
+jq --argjson mcp "${MCP_BOOL}" --argjson lsp_disabled "${LSP_DISABLED}" '
+    .mcp.homeassistant.enabled = $mcp |
+    if $lsp_disabled then .lsp["ha-yaml"].disabled = true else del(.lsp["ha-yaml"].disabled) end
+' /opt/ha-mcp-server/opencode-ha.json > /data/.config/opencode/opencode.json
+
+bashio::log.info "OpenCode configuration generated successfully"
+
+# ==============================================================================
+# Inject custom OpenCode config.json (optional, for advanced users)
+# This allows power users to provide custom OpenCode configuration as a JSON
+# string via the add-on config UI. It is written to config.json which OpenCode
+# merges with opencode.json (our MCP/LSP config) at startup.
+# See https://opencode.ai/docs/config for the full schema.
+# ==============================================================================
+
+OPTIONS_FILE="/data/options.json"
+CONFIG_TARGET="/data/.config/opencode/config.json"
+
+if [ -f "${OPTIONS_FILE}" ]; then
+    OPENCODE_CONFIG_JSON=$(jq -r '.opencode_config // empty' "${OPTIONS_FILE}")
+    if [ -n "${OPENCODE_CONFIG_JSON}" ]; then
+        # Validate that the provided string is valid JSON
+        if ! printf '%s' "${OPENCODE_CONFIG_JSON}" | jq -e . >/dev/null 2>&1; then
+            bashio::log.error "Invalid JSON in opencode_config option. Skipping custom config."
+            bashio::log.error "Please check your JSON syntax in the Configuration tab."
+            # Remove stale config.json so a previously valid config doesn't persist
+            rm -f "${CONFIG_TARGET}"
+        else
+            printf '%s' "${OPENCODE_CONFIG_JSON}" > "${CONFIG_TARGET}"
+            bashio::log.info "Custom OpenCode config.json written from add-on configuration"
+        fi
+    else
+        # No custom config provided - remove any stale config.json from a previous run
+        rm -f "${CONFIG_TARGET}"
+    fi
+fi
+
+bashio::log.info "HA OpenCode initialization complete"

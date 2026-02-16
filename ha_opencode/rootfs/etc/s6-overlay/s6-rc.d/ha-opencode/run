@@ -1,11 +1,11 @@
 #!/command/with-contenv bashio
 # ==============================================================================
-# HA OpenCode - Main Service
+# HA OpenCode - Terminal Service (ttyd)
+# Provides web-based terminal with OpenCode via Home Assistant ingress
 # ==============================================================================
 
 bashio::log.info "=============================================="
-bashio::log.info "  HA OpenCode for Home Assistant"
-bashio::log.info "  Starting services..."
+bashio::log.info "  HA OpenCode Terminal (ttyd + ingress)"
 bashio::log.info "=============================================="
 
 # Set home to persistent data directory
@@ -13,56 +13,16 @@ export HOME="/data"
 export XDG_DATA_HOME="/data/.local/share"
 export XDG_CONFIG_HOME="/data/.config"
 
-# Ensure data directories exist
-mkdir -p /data/.local/share/opencode
-mkdir -p /data/.config/opencode
-
 # ==============================================================================
-# Deploy AGENTS.md to Home Assistant config directory (first install only)
-# Users can customize this file using File Editor or any text editor
+# Read terminal appearance configuration
 # ==============================================================================
 
-if [ ! -f "/homeassistant/AGENTS.md" ]; then
-    cp /opt/ha-mcp-server/AGENTS.md /homeassistant/AGENTS.md
-    bashio::log.info "Deployed default AGENTS.md to /homeassistant/"
-    bashio::log.info "You can customize AI instructions by editing AGENTS.md"
-fi
-
-# ==============================================================================
-# Deploy Prettier config for HA YAML formatting (first install only)
-# Prettier auto-formats YAML files written by OpenCode to follow HA conventions
-# Users can customize .prettierrc.yaml to adjust formatting preferences
-# ==============================================================================
-
-if [ ! -f "/homeassistant/.prettierrc.yaml" ]; then
-    cp /opt/ha-mcp-server/.prettierrc.yaml /homeassistant/.prettierrc.yaml
-    bashio::log.info "Deployed default .prettierrc.yaml for HA YAML formatting"
-fi
-
-# ==============================================================================
-# Read configuration options
-# ==============================================================================
-
-MCP_ENABLED=$(bashio::config 'mcp_enabled')
-LSP_ENABLED=$(bashio::config 'lsp_enabled' || echo "true")
 TERMINAL_THEME=$(bashio::config 'terminal_theme')
 FONT_SIZE=$(bashio::config 'font_size')
 CURSOR_STYLE=$(bashio::config 'cursor_style')
 CURSOR_BLINK=$(bashio::config 'cursor_blink')
 
-bashio::log.info "Configuration: MCP=${MCP_ENABLED} LSP=${LSP_ENABLED} Theme=${TERMINAL_THEME}"
-
-# ==============================================================================
-# Apply configuration in single jq operation
-# ==============================================================================
-
-MCP_BOOL=$([ "${MCP_ENABLED}" = "true" ] && echo "true" || echo "false")
-LSP_DISABLED=$([ "${LSP_ENABLED}" = "true" ] && echo "false" || echo "true")
-
-jq --argjson mcp "${MCP_BOOL}" --argjson lsp_disabled "${LSP_DISABLED}" '
-    .mcp.homeassistant.enabled = $mcp |
-    if $lsp_disabled then .lsp["ha-yaml"].disabled = true else del(.lsp["ha-yaml"].disabled) end
-' /opt/ha-mcp-server/opencode-ha.json > /data/.config/opencode/opencode.json
+bashio::log.info "Terminal theme: ${TERMINAL_THEME}"
 
 # ==============================================================================
 # Theme definitions
@@ -127,7 +87,7 @@ THEME_JSON=$(get_theme "${TERMINAL_THEME}")
 
 export NODE_OPTIONS="--max-old-space-size=512"
 
-bashio::log.info "Starting ttyd on port 8099..."
+bashio::log.info "Starting ttyd on port 8099 (Home Assistant ingress)..."
 
 # ==============================================================================
 # Start ttyd with configured options

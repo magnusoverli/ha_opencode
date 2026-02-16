@@ -1,7 +1,7 @@
 ---
 name: "HA OpenCode"
 description: "AI coding agent for editing Home Assistant configuration with deep MCP integration and LSP support"
-version: "1.1.6"
+version: "1.2.0"
 slug: "ha_opencode"
 image: "ghcr.io/magnusoverli/ha_opencode/{arch}"
 url: "https://github.com/magnusoverli/ha_opencode"
@@ -39,22 +39,34 @@ options:
   mcp_enabled: false
   lsp_enabled: true
   
+  # CPU mode: auto (detect), baseline (for older CPUs), regular (force AVX2)
+  cpu_mode: "auto"
+  
   # Terminal appearance
   terminal_theme: "breeze"
   font_size: 14
   cursor_style: "block"
   cursor_blink: false
+  
+  # Advanced: custom OpenCode configuration (JSON)
+  opencode_config: ""
 
 schema:
   # Feature toggles
   mcp_enabled: bool
   lsp_enabled: bool
   
+  # CPU mode
+  cpu_mode: list(auto|baseline|regular)
+  
   # Terminal appearance
   terminal_theme: list(breeze|catppuccin_mocha|catppuccin_latte|dracula|nord|tokyo_night|one_dark|solarized_dark|solarized_light|gruvbox_dark)
   font_size: int(10,24)
   cursor_style: list(block|underline|bar)
   cursor_blink: bool
+  
+  # Advanced
+  opencode_config: str?
 
 # Exclude caches from backups
 backup_exclude:
