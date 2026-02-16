@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 1.3.4
+
+Re-tagged release to include the changelog in the published image (1.3.0–1.3.3 were built before the changelog was finalized).
+
 ## 1.3.3
 
 **Architecture Refactor, CPU Compatibility, and Bug Fixes**
