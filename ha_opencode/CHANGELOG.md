@@ -1,6 +1,16 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 1.3.5
+
+**Bug Fix: ARM64 Baseline Binary Initialization (fixes [#7](https://github.com/magnusoverli/ha_opencode/issues/7))**
+
+- Fixed OpenCode failing to initialize on ARM64 devices (e.g. Home Assistant Green) when using the baseline binary
+  - `OPENCODE_BIN_PATH` in `opencode-session.sh` was hardcoded to the x64 baseline path — now correctly resolves based on architecture
+- Added proper ARM64 detection in CPU capability check, skipping the irrelevant x86 AVX flag inspection
+- Fixed potential infinite exec loop in the OpenCode wrapper fallback path
+- Thanks to @timsteinberg and @Teeflo for reporting!
+
 ## 1.3.4
 
 Re-tagged release to include the changelog in the published image (1.3.0–1.3.3 were built before the changelog was finalized).
