@@ -34,7 +34,14 @@ ADDON_VERSION=$(cat /data/.addon_version 2>/dev/null || echo "unknown")
 CPU_INFO=""
 if [ "${CPU_MODE}" = "baseline" ]; then
     CPU_INFO=" ${YELLOW}(baseline CPU mode)${NC}"
-    export OPENCODE_BIN_PATH="/usr/local/lib/node_modules/opencode-linux-x64-baseline/bin/opencode"
+    case $(uname -m) in
+        x86_64)
+            export OPENCODE_BIN_PATH="/usr/local/lib/node_modules/opencode-linux-x64-baseline/bin/opencode"
+            ;;
+        aarch64|arm64)
+            export OPENCODE_BIN_PATH="/usr/local/lib/node_modules/opencode-linux-arm64-baseline/bin/opencode"
+            ;;
+    esac
 fi
 
 # Change to Home Assistant config directory

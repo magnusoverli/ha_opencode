@@ -41,6 +41,15 @@ detect_cpu_capabilities() {
     local has_avx2=false
     local has_avx=false
     
+    # ARM64 doesn't use x86 AVX instructions - always use baseline
+    local machine
+    machine=$(uname -m)
+    if [ "${machine}" = "aarch64" ] || [ "${machine}" = "arm64" ]; then
+        echo "baseline" > /data/.cpu_mode
+        bashio::log.info "ARM64 architecture detected - using baseline OpenCode binary"
+        return
+    fi
+    
     if [ -f /proc/cpuinfo ]; then
         cpu_flags=$(awk -F': ' '/^flags/ {print $2; exit}' /proc/cpuinfo)
     fi
@@ -61,7 +70,7 @@ detect_cpu_capabilities() {
         bashio::log.info "CPU has AVX but not AVX2 - using baseline OpenCode binary"
     else
         echo "baseline" > /data/.cpu_mode
-        bashio::log.warning "CPU lacks AVX support - using baseline OpenCode binary (limited functionality)"
+        bashio::log.warning "CPU lacks AVX support - using baseline OpenCode binary"
     fi
 }
 
@@ -157,8 +166,9 @@ if [ -x "/usr/local/lib/node_modules/opencode-ai/bin/opencode" ]; then
     exec /usr/local/lib/node_modules/opencode-ai/bin/opencode "$@"
 fi
 
-# Last resort - try system opencode
-exec opencode "$@"
+# Last resort - error out instead of infinite loop
+echo "Error: No OpenCode binary found. Please reinstall the addon." >&2
+exit 1
 EOF
     
     chmod +x "${wrapper_path}"
