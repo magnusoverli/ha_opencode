@@ -18,6 +18,9 @@ fi
 mkdir -p "${HOME}/.local/share/opencode"
 mkdir -p "${HOME}/.config/opencode"
 
+# Marker file for oh-my-opencode setup
+OMO_MARKER="${HOME}/.config/opencode/.omo-setup-complete"
+
 # KDE Breeze-style colors
 BLUE='\033[38;2;29;153;243m'
 GREEN='\033[38;2;17;209;22m'
@@ -67,6 +70,23 @@ show_banner() {
     echo ""
 }
 
+# Function to show menu
+show_menu() {
+    local omo_status=""
+    if [ -f "${OMO_MARKER}" ]; then
+        omo_status="${GREEN}(configured)${NC}"
+    else
+        omo_status="${YELLOW}(recommended)${NC}"
+    fi
+    
+    echo -e "${WHITE}${BOLD}Main Menu${NC}"
+    echo ""
+    echo -e "  ${GREEN}1${NC}) Launch OpenCode"
+    echo -e "  ${GREEN}2${NC}) Configure Oh-My-OpenCode ${omo_status}"
+    echo -e "  ${GREEN}3${NC}) Drop to shell"
+    echo ""
+}
+
 # Function to show shell help (after exiting opencode)
 show_shell_help() {
     echo ""
@@ -75,25 +95,73 @@ show_shell_help() {
     echo -e "${WHITE}Dropped to shell.${NC} Working directory: ${CYAN}/homeassistant${NC}"
     echo ""
     echo -e "${BOLD}Commands${NC}"
-    echo -e "  ${GREEN}opencode${NC}          Restart the AI coding agent"
+    echo -e "  ${GREEN}opencode${NC}          Start the AI coding agent"
+    echo -e "  ${GREEN}omo-wizard${NC}        Run Oh-My-OpenCode setup wizard"
     echo -e "  ${GREEN}ha-logs${NC} ${GRAY}<type>${NC}    View logs (core, error, supervisor, host)"
     echo -e "  ${GREEN}ha-mcp${NC} ${GRAY}<cmd>${NC}     MCP integration (enable, disable, status)"
     echo ""
 }
 
-# Show initial banner
-show_banner
+# Function to launch opencode
+launch_opencode() {
+    show_banner
+    echo -e "${WHITE}Working directory:${NC} ${CYAN}/homeassistant${NC}"
+    
+    if [ ! -f "${OMO_MARKER}" ]; then
+        echo -e "${YELLOW}Tip: Run option 2 to configure Oh-My-OpenCode for enhanced features.${NC}"
+        echo ""
+    fi
+    
+    echo -e "${GRAY}First time? Use ${NC}${GREEN}/connect${NC} ${GRAY}inside OpenCode to add your AI provider${NC}"
+    echo -e "${GRAY}Customize AI behavior by editing ${NC}${GREEN}AGENTS.md${NC} ${GRAY}in your config folder${NC}"
+    echo ""
+    
+    opencode
+    
+    # When opencode exits, show help and drop to bash
+    show_shell_help
+    exec bash --login
+}
 
-echo -e "${WHITE}Working directory:${NC} ${CYAN}/homeassistant${NC}"
-echo -e "${GRAY}First time? Use ${NC}${GREEN}/connect${NC} ${GRAY}inside OpenCode to add your AI provider${NC}"
-echo -e "${GRAY}Customize AI behavior by editing ${NC}${GREEN}AGENTS.md${NC} ${GRAY}in your config folder${NC}"
-echo ""
+# Function to run setup wizard
+run_omo_wizard() {
+    omo-setup-wizard.sh
+    echo ""
+    echo -e "${GRAY}Press any key to return to menu...${NC}"
+    read -n 1 -s
+}
 
-# Launch OpenCode
-opencode
+# Function to drop to shell
+drop_to_shell() {
+    show_banner
+    show_shell_help
+    exec bash --login
+}
 
-# When opencode exits, show help and drop to bash
-show_shell_help
-
-# Start interactive bash shell
-exec bash --login
+# Main loop
+while true; do
+    show_banner
+    show_menu
+    
+    echo -e "${WHITE}Enter choice ${GRAY}[1-3]${NC}:${NC} "
+    read -n 1 -r choice
+    echo ""
+    
+    case $choice in
+        1)
+            launch_opencode
+            exit 0
+            ;;
+        2)
+            run_omo_wizard
+            ;;
+        3)
+            drop_to_shell
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Invalid option. Please enter 1, 2, or 3.${NC}"
+            sleep 1
+            ;;
+    esac
+done
