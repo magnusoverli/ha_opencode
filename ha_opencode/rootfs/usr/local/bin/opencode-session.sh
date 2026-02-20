@@ -39,7 +39,11 @@ if [ "${CPU_MODE}" = "baseline" ]; then
             export OPENCODE_BIN_PATH="/usr/local/lib/node_modules/opencode-linux-x64-baseline/bin/opencode"
             ;;
         aarch64|arm64)
-            export OPENCODE_BIN_PATH="/usr/local/lib/node_modules/opencode-linux-arm64-baseline/bin/opencode"
+            if [ -x "/usr/local/lib/node_modules/opencode-linux-arm64-baseline/bin/opencode" ]; then
+                export OPENCODE_BIN_PATH="/usr/local/lib/node_modules/opencode-linux-arm64-baseline/bin/opencode"
+            else
+                export OPENCODE_BIN_PATH="/usr/local/lib/node_modules/opencode-ai/bin/opencode"
+            fi
             ;;
     esac
 fi
