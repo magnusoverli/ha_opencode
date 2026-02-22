@@ -5,12 +5,12 @@ All notable changes to this project will be documented in this file.
 
 **Bug Fix: ARM64 Initialization Failure + Documentation Overhaul**
 
-- Fixed OpenCode failing to start on ARM64 devices (e.g. Home Assistant Green) — ARM64 was incorrectly routed into `baseline` mode even though no ARM64 baseline package exists, leaving the session with a non-existent binary path. ARM64 now correctly uses the regular OpenCode binary (reported by @timsteinberg and @wizzyto12, fixed by @Teeflo)
-- Fixed potential infinite exec loop in the OpenCode wrapper when `/usr/local/bin/opencode` was already a symlink from a previous run (fixed by @Teeflo)
-- Added safe fallback in `opencode-session.sh` for the edge case where ARM64 baseline mode is manually forced via config (fixed by @Teeflo)
-- Revamped README with improved structure, clearer installation steps, and updated badges (contributed by @Teeflo)
+- Fixed OpenCode failing to start on ARM64 devices (e.g. Home Assistant Green) — ARM64 was incorrectly routed into `baseline` mode even though no ARM64 baseline package exists, leaving the session with a non-existent binary path. ARM64 now correctly uses the regular OpenCode binary (reported by [@timsteinberg](https://github.com/timsteinberg) and [@wizzyto12](https://github.com/wizzyto12), fixed by [@Teeflo](https://github.com/Teeflo))
+- Fixed potential infinite exec loop in the OpenCode wrapper when `/usr/local/bin/opencode` was already a symlink from a previous run (fixed by [@Teeflo](https://github.com/Teeflo))
+- Added safe fallback in `opencode-session.sh` for the edge case where ARM64 baseline mode is manually forced via config (fixed by [@Teeflo](https://github.com/Teeflo))
+- Revamped README with improved structure, clearer installation steps, and updated badges (contributed by [@Teeflo](https://github.com/Teeflo))
 - Corrected MCP tool count (22 → 31), resource count (9 → 13), and added go-to-definition to the LSP feature description to reflect the actual implementation
-- Updated icon and logo assets (contributed by @Teeflo)
+- Updated icon and logo assets (contributed by [@Teeflo](https://github.com/Teeflo))
 
 ## 1.3.5
 
@@ -20,7 +20,7 @@ All notable changes to this project will be documented in this file.
   - `OPENCODE_BIN_PATH` in `opencode-session.sh` was hardcoded to the x64 baseline path — now correctly resolves based on architecture
 - Added proper ARM64 detection in CPU capability check, skipping the irrelevant x86 AVX flag inspection
 - Fixed potential infinite exec loop in the OpenCode wrapper fallback path
-- Thanks to @timsteinberg and @Teeflo for reporting!
+- Thanks to [@timsteinberg](https://github.com/timsteinberg) and [@Teeflo](https://github.com/Teeflo) for reporting!
 
 ## 1.3.4
 
