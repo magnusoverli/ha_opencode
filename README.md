@@ -45,10 +45,10 @@ Works with **75+ AI providers**: Anthropic, OpenAI, Google, Groq, Ollama, and ma
 <td width="50%">
 
 #### 🔧 **Deep MCP Integration**
-22 tools, 9 resources, and 6 guided prompts for comprehensive Home Assistant interaction.
+31 tools, 13 resources, and 6 guided prompts for comprehensive Home Assistant interaction.
 
 #### 💡 **Intelligent LSP Support**
-Smart YAML editing with entity autocomplete, live hover information, and instant diagnostics.
+Smart YAML editing with entity autocomplete, live hover information, instant diagnostics, and go-to-definition support.
 
 #### 📊 **Complete Log Access**
 View Core, Supervisor, and host logs directly from the terminal.
