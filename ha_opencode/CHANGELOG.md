@@ -1,6 +1,15 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 1.3.7
+
+**Housekeeping: Licensing, CI, and Documentation**
+
+- Added missing `ws`, `prettier`, and Home Assistant base image entries to `THIRD-PARTY-LICENSES.md`, including the Apache-2.0 license text for the HA base image
+- Contributor mentions in the changelog are now linked directly to GitHub profiles
+- Split CI build workflow into separate per-architecture jobs (`build-aarch64.yaml`, `build-amd64.yaml`) to enable independent build status badges in the README
+- CI workflow runs now include the version number in their name for easier identification in the Actions tab
+
 ## 1.3.6
 
 **Bug Fix: ARM64 Initialization Failure + Documentation Overhaul**
