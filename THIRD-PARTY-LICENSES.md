@@ -12,6 +12,7 @@ retain their respective licenses.
 | Package | License | Source |
 |---------|---------|--------|
 | @modelcontextprotocol/sdk | MIT | https://github.com/modelcontextprotocol/sdk |
+| ws | MIT | https://github.com/websockets/ws |
 | zod | MIT | https://github.com/colinhacks/zod |
 
 ### LSP Server Dependencies
@@ -28,7 +29,9 @@ retain their respective licenses.
 |-----------|---------|--------|
 | ttyd | MIT | https://github.com/tsl0922/ttyd |
 | OpenCode | MIT | https://github.com/opencode-ai/opencode |
+| Prettier | MIT | https://github.com/prettier/prettier |
 | Node.js | MIT | https://github.com/nodejs/node |
+| Home Assistant base image | Apache-2.0 | https://github.com/home-assistant/docker-base |
 
 ## License Texts
 
@@ -52,6 +55,22 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+### Apache License 2.0
+
+```
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 ```
 
 ### ISC License
