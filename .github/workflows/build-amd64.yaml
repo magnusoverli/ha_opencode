@@ -1,5 +1,6 @@
 ---
 name: Build amd64
+run-name: "Build amd64 ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}"
 
 on:
   push:
