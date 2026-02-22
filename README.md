@@ -9,8 +9,8 @@
 [![License][license-shield]][license]
 [![Maintenance][maintenance-shield]][github]
 
-[![aarch64][aarch64-shield]][github]
-[![amd64][amd64-shield]][github]
+[![aarch64][aarch64-shield]][aarch64-workflow]
+[![amd64][amd64-shield]][amd64-workflow]
 
 **Transform your Home Assistant configuration with the power of AI**
 
@@ -281,5 +281,7 @@ This is free and unencumbered software released into the public domain - see the
 [project-stage-shield]: https://img.shields.io/badge/project%20stage-experimental-orange.svg?style=for-the-badge
 [license-shield]: https://img.shields.io/github/license/magnusoverli/ha_opencode.svg?style=for-the-badge
 [maintenance-shield]: https://img.shields.io/maintenance/yes/2026.svg?style=for-the-badge
-[aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg?style=for-the-badge
-[amd64-shield]: https://img.shields.io/badge/amd64-yes-green.svg?style=for-the-badge
+[aarch64-shield]: https://img.shields.io/github/actions/workflow/status/magnusoverli/ha_opencode/build-aarch64.yaml?style=for-the-badge&label=aarch64
+[amd64-shield]: https://img.shields.io/github/actions/workflow/status/magnusoverli/ha_opencode/build-amd64.yaml?style=for-the-badge&label=amd64
+[aarch64-workflow]: https://github.com/magnusoverli/ha_opencode/actions/workflows/build-aarch64.yaml
+[amd64-workflow]: https://github.com/magnusoverli/ha_opencode/actions/workflows/build-amd64.yaml
