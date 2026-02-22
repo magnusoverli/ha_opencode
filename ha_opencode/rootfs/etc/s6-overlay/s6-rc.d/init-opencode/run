@@ -41,12 +41,13 @@ detect_cpu_capabilities() {
     local has_avx2=false
     local has_avx=false
     
-    # ARM64 doesn't use x86 AVX instructions - always use baseline
+    # ARM64 doesn't use x86 AVX instructions - always use regular binary
+    # Note: There is NO baseline package for ARM64, so we always use the regular one
     local machine
     machine=$(uname -m)
     if [ "${machine}" = "aarch64" ] || [ "${machine}" = "arm64" ]; then
-        echo "baseline" > /data/.cpu_mode
-        bashio::log.info "ARM64 architecture detected - using baseline OpenCode binary"
+        echo "regular" > /data/.cpu_mode
+        bashio::log.info "ARM64 architecture detected - using regular OpenCode binary"
         return
     fi
     
@@ -130,11 +131,11 @@ create_opencode_wrapper() {
     local mode="$1"
     local wrapper_path="/usr/local/bin/opencode"
     
-    # Backup original if exists and not already a wrapper
-    if [ -f "${wrapper_path}" ] && [ ! -L "${wrapper_path}" ]; then
-        if ! grep -q "CPU_MODE" "${wrapper_path}" 2>/dev/null; then
-            mv "${wrapper_path}" "${wrapper_path}.original"
-        fi
+    # Backup original or remove symlink if already a wrapper
+    if [ -L "${wrapper_path}" ]; then
+        rm -f "${wrapper_path}"
+    elif [ -f "${wrapper_path}" ] && ! grep -q "CPU_MODE" "${wrapper_path}" 2>/dev/null; then
+        mv "${wrapper_path}" "${wrapper_path}.original"
     fi
     
     # Create wrapper script
