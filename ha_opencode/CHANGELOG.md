@@ -1,6 +1,18 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 1.3.6
+
+**Bug Fix: ARM64 Initialization Failure + Documentation Overhaul**
+
+- Fixed OpenCode failing to start on ARM64 devices (e.g. Home Assistant Green) — ARM64 was incorrectly routed into `baseline` mode even though no ARM64 baseline package exists, leaving the session with a non-existent binary path. ARM64 now correctly uses the regular OpenCode binary
+- Fixed potential infinite exec loop in the OpenCode wrapper when `/usr/local/bin/opencode` was already a symlink from a previous run
+- Added safe fallback in `opencode-session.sh` for the edge case where ARM64 baseline mode is manually forced via config
+- Revamped README with improved structure, clearer installation steps, and updated badges (now using a dynamic version badge)
+- Corrected MCP tool count (22 → 31), resource count (9 → 13), and added go-to-definition to the LSP feature description to reflect the actual implementation
+- Updated icon and logo assets
+- Thanks to @timsteinberg, @wizzyto12, and @Teeflo for the report and the fix!
+
 ## 1.3.5
 
 **Bug Fix: ARM64 Baseline Binary Initialization (fixes [#7](https://github.com/magnusoverli/ha_opencode/issues/7))**
