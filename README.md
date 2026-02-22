@@ -45,7 +45,7 @@ Works with **75+ AI providers**: Anthropic, OpenAI, Google, Groq, Ollama, and ma
 <td width="50%">
 
 #### 🔧 **Deep MCP Integration**
-19 tools, 9 resources, and 6 guided prompts for comprehensive Home Assistant interaction.
+22 tools, 9 resources, and 6 guided prompts for comprehensive Home Assistant interaction.
 
 #### 💡 **Intelligent LSP Support**
 Smart YAML editing with entity autocomplete, live hover information, and instant diagnostics.
@@ -149,8 +149,6 @@ While the AI is instructed to request confirmation before making changes, please
 Comprehensive documentation is available covering all features:
 
 - 📖 [**Full Add-on Documentation**][docs] - Complete guide to all features
-- 🔧 [**MCP Integration Guide**][docs] - 19 tools, 9 resources, 6 prompts
-- 💡 [**LSP Features**][docs] - Intelligent YAML editing capabilities
 - 📝 [**Changelog**][changelog] - Version history and updates
 
 ---
@@ -226,7 +224,7 @@ We love contributions! Here's how you can help:
 4. 📤 Push to the branch (`git push origin feature/amazing-feature`)
 5. 🎉 Open a Pull Request
 
-See our [contributing guidelines](CONTRIBUTING.md) for more details.
+Contributions of all kinds are welcome — feel free to open a PR!
 
 ---
 
@@ -255,7 +253,7 @@ See the [contributors page](https://github.com/magnusoverli/ha_opencode/graphs/c
 
 ## 📜 License
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+This is free and unencumbered software released into the public domain - see the [UNLICENSE](UNLICENSE) file for details.
 
 ---
 
@@ -273,13 +271,13 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 [docs]: ./ha_opencode/DOCS.md
 [changelog]: ./ha_opencode/CHANGELOG.md
 [issues]: https://github.com/magnusoverli/ha_opencode/issues
-[license]: LICENSE
+[license]: UNLICENSE
 [github]: https://github.com/magnusoverli/ha_opencode
 [repo-add]: https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fmagnusoverli%2Fha_opencode
 [repo-btn]: https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg
 
 <!-- Badges -->
-[version-shield]: https://img.shields.io/badge/version-v1.0.12-blue.svg?style=for-the-badge
+[version-shield]: https://img.shields.io/github/v/release/magnusoverli/ha_opencode.svg?style=for-the-badge
 [project-stage-shield]: https://img.shields.io/badge/project%20stage-experimental-orange.svg?style=for-the-badge
 [license-shield]: https://img.shields.io/github/license/magnusoverli/ha_opencode.svg?style=for-the-badge
 [maintenance-shield]: https://img.shields.io/maintenance/yes/2026.svg?style=for-the-badge
