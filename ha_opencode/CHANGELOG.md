@@ -1,6 +1,52 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 1.4.0
+
+**Safe Config Writing & Multi-Layered Validation Pipeline**
+
+This release adds a comprehensive config validation system that ensures your Home Assistant will never fail to start due to AI-written configuration. Inspired by community feedback on making AI coding agents safe for production HA instances.
+
+### New MCP Tool: `write_config_safe`
+- Writes YAML config files with automatic validation and backup/restore
+- If validation fails after writing, the original file is automatically restored
+- Supports `dry_run` mode to pre-validate config without touching disk
+- Validates through multiple layers before committing:
+  - Deprecation pattern scanning (20+ patterns)
+  - Jinja2 template pre-validation through HA's own template engine
+  - Structural YAML checks (automations need triggers/actions, scripts need sequences, etc.)
+  - YAML lint checks (tabs, comma-separated entity lists, multiline issues)
+  - Full HA Core config check (`POST /config/core/check_config`)
+- Path traversal protection — blocks writes to internal directories (`.storage`, `.cloud`, etc.)
+
+### Dynamic Validation Data Sources
+- **GitHub remote patterns** — deprecation patterns are fetched from the repo hourly, allowing updates between add-on releases
+- **HA Repairs API** — queries your installation's active repair/deprecation warnings via WebSocket (`repairs/list_issues`)
+- **HA Alerts feed** — checks `alerts.home-assistant.io` for known integration issues affecting your config
+- All remote sources have timeouts, caching (1 hour TTL), and graceful fallback to bundled data
+
+### LSP Real-Time Deprecation Warnings
+- The LSP server now surfaces deprecated syntax as yellow squigglies while editing YAML files
+- Shares the same pattern database as the MCP server for consistency
+- Also fetches updated patterns from GitHub in the background
+
+### Shared Deprecation Pattern Database
+- Extracted deprecation patterns from MCP server into a shared JSON file (`rootfs/opt/shared/deprecation-patterns.json`)
+- Both MCP and LSP servers load from the same source
+- Expanded from 10 to 20 patterns, adding coverage for:
+  - Legacy MQTT platform syntax (`platform: mqtt` under domain keys)
+  - Direct state object access (`states.sensor.x.state` — use `states('sensor.x')`)
+  - Direct attribute access (`states.sensor.x.attributes` — use `state_attr()`)
+  - `entity_id` inside `data:` (should use `target:`)
+  - `hassio` service domain (renamed to `homeassistant`)
+  - String format `for:` durations (should use dict format)
+  - Legacy `value_template` key (modern template sensors use `state:`)
+
+### Updated Agent Instructions
+- `INSTRUCTIONS.md` updated with mandatory `write_config_safe` workflow
+- `AGENTS.md` updated with new tool references and deprecation guidance
+- MCP server version bumped to v2.6.0 (Safe Config Edition), tool count 31 → 32
+
 ## 1.3.7
 
 **Housekeeping: Licensing, CI, and Documentation**
