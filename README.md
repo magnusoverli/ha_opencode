@@ -24,7 +24,6 @@
 
 **HA OpenCode** brings the revolutionary [OpenCode](https://opencode.ai) AI coding agent directly into your Home Assistant instance. Experience intelligent configuration editing through natural language, advanced YAML assistance, and deep integration via the Model Context Protocol (MCP).
 
-Imagine having an expert Home Assistant developer available 24/7 - that's what HA OpenCode delivers. 
 
 ### 🎯 Key Features
 
