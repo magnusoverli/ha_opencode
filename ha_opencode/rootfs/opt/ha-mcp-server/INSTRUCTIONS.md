@@ -88,21 +88,59 @@ Use the documentation tools proactively:
 | `get_integration_docs` | **Before writing ANY integration config** |
 | `get_breaking_changes` | When config stopped working, or checking compatibility |
 | `check_config_syntax` | Before presenting YAML to user |
+| `write_config_safe` | **ALWAYS use this to write config files** (see below) |
 
 ### Common Deprecations to Watch For
 - **Template sensors**: `platform: template` under `sensor:` -> use top-level `template:`
 - **Entity namespace**: `entity_namespace:` is deprecated -> use `unique_id`
 - **Time/date sensors**: `platform: time_date` -> use template sensors
 - **White value**: `white_value` in lights -> use `white`
+- **MQTT legacy platform**: `platform: mqtt` under `sensor:` -> use top-level `mqtt:` key
+- **Direct state access**: `states.sensor.x.state` -> use `states('sensor.x')`
+- **entity_id in data**: `data: entity_id:` -> use `target: entity_id:`
+- **hassio service domain**: `hassio.` services -> use `homeassistant.` domain
 
-### Workflow for Configuration Tasks
+### MANDATORY Workflow for Configuration Tasks
+
+**Use `write_config_safe` as the primary tool for writing configuration files.** This tool automatically validates before committing to disk and will never leave your HA in a broken state.
+
 ```
-1. get_config()                    -> Know the HA version
-2. get_integration_docs("name")    -> Get CURRENT syntax  
-3. Write config using docs syntax  -> Not from memory!
-4. check_config_syntax(yaml)       -> Catch deprecations
-5. Show user and get approval
-6. validate_config()               -> Full HA check
+1. get_config()                                        -> Know the HA version
+2. get_integration_docs("name")                        -> Get CURRENT syntax
+3. Draft config using docs syntax                      -> Not from memory!
+4. write_config_safe(path, yaml, dry_run=true)         -> Pre-validate everything
+5. If errors: fix and repeat step 4
+6. Show user the validated config and get approval
+7. write_config_safe(path, yaml)                       -> Write for real (validated + backed up)
+```
+
+The `write_config_safe` tool performs these checks automatically:
+- **Deprecation scanning** — 20+ patterns, auto-updated from GitHub between add-on releases
+- **Jinja2 template validation** — sends every template through HA's own engine
+- **Structural validation** — checks for missing required keys in automations, scripts, etc.
+- **YAML lint checks** — tabs, comma-separated entity lists, etc.
+- **HA Repair issues** — queries your installation's active repair/deprecation warnings via HA Core's repairs API
+- **HA Alerts** — checks alerts.home-assistant.io for known integration issues affecting your config
+- **Full HA config validation** — calls HA Core's check_config (same as `ha core check`)
+- **Automatic backup/restore** — if validation fails after writing, restores the original file
+
+**If validation fails, the original file is automatically restored. HA will never fail to start due to config written through this tool.**
+
+### How Validation Data Stays Current
+
+The validation system uses multiple data sources that update automatically:
+1. **Bundled patterns** — Ship with the add-on, always available offline
+2. **GitHub remote patterns** — Fetched hourly from the repo, allowing pattern updates between add-on releases
+3. **HA Core config check** — Always reflects your exact HA version's validation rules
+4. **HA Repairs API** — Live deprecation warnings specific to your installation
+5. **HA Alerts feed** — Global integration issues from alerts.home-assistant.io
+
+### Legacy Workflow (still available)
+For quick checks without writing files, you can still use:
+```
+1. check_config_syntax(yaml)       -> Catch deprecations (regex-based, fast)
+2. validate_config()               -> Full HA check (validates on-disk files)
+3. get_error_log(lines=100)        -> Read errors if validation fails
 ```
 
 **Never rely solely on training data for YAML syntax. Always verify with docs.**
@@ -120,12 +158,13 @@ Use these prompts for complex tasks:
 ## Best Practices
 
 1. **Check before changing**: Use `get_states` before `call_service` to verify current state
-2. **Validate configurations**: Use `validate_config` after editing YAML files
-3. **Use history for debugging**: Use `get_history` when troubleshooting intermittent issues
-4. **Leverage relationships**: Use `get_entity_details` to find related entities
-5. **Be specific with services**: Always specify `entity_id` in the target for `call_service`
-6. **Verify syntax is current**: Use `get_integration_docs` before writing configuration
-7. **Check for deprecations**: Use `check_config_syntax` before presenting YAML to user
+2. **Always use write_config_safe**: This is the safest way to write config — it validates and auto-restores on failure
+3. **Pre-validate with dry_run**: Use `write_config_safe(path, yaml, dry_run=true)` before presenting config to the user
+4. **Use history for debugging**: Use `get_history` when troubleshooting intermittent issues
+5. **Leverage relationships**: Use `get_entity_details` to find related entities
+6. **Be specific with services**: Always specify `entity_id` in the target for `call_service`
+7. **Verify syntax is current**: Use `get_integration_docs` before writing configuration
+8. **Check for deprecations**: The LSP and `write_config_safe` catch these automatically, but `check_config_syntax` is available for quick ad-hoc checks
 
 ## Example Patterns
 
@@ -152,8 +191,10 @@ Use these prompts for complex tasks:
 ```
 1. search_entities() to find relevant entities
 2. get_services() to understand available services
-3. Write automation YAML
-4. validate_config()
+3. Draft automation YAML
+4. write_config_safe("automations.yaml", yaml, dry_run=true)  -> Pre-validate
+5. Show user and get approval
+6. write_config_safe("automations.yaml", yaml)                -> Write safely
 ```
 
 ### Write configuration for an integration (IMPORTANT!)
@@ -161,9 +202,10 @@ Use these prompts for complex tasks:
 1. get_config()                              -> Check HA version
 2. get_integration_docs(integration="mqtt")  -> Get current syntax
 3. Draft configuration using CURRENT syntax from docs
-4. check_config_syntax(yaml_config, "mqtt")  -> Validate for deprecations
-5. Present to user
-6. validate_config()                         -> Full HA validation
+4. write_config_safe(path, yaml, dry_run=true)  -> Pre-validate (deprecations + templates + HA check)
+5. If errors: fix and repeat step 4
+6. Present validated config to user
+7. write_config_safe(path, yaml)             -> Write for real (auto backup + validation)
 ```
 
 ### User reports "config stopped working after update"

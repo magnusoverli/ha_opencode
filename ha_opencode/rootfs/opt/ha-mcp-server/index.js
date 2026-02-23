@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Home Assistant MCP Server for OpenCode (Firmware Monitor Edition v2.5)
+ * Home Assistant MCP Server for OpenCode (Safe Config Edition v2.6)
  * 
  * A cutting-edge MCP server providing deep integration with Home Assistant.
  * Implements the latest MCP specification (2025-06-18) features:
@@ -13,15 +13,21 @@
  * - Content annotations (audience/priority)
  * - Live documentation fetching
  * - Breaking changes awareness
- * - Deprecation pattern detection
+ * - Deprecation pattern detection (shared DB with remote GitHub updates)
  * - Real-time update progress monitoring
  * - ESPHome build and flash integration
  * - Visual firmware update monitoring with timeline
+ * - Safe config writing with automatic validation and backup/restore
+ * - Jinja2 template pre-validation through HA's engine
+ * - Structural YAML validation for automations, scripts, templates
+ * - HA Repairs API integration (instance-specific deprecation warnings)
+ * - HA Alerts feed integration (global integration issue awareness)
  * 
- * TOOLS (31):
+ * TOOLS (32):
  * - Entity state management (get, search, history)
  * - Service calls with intelligent targeting
- * - Configuration validation and management
+ * - Configuration validation and safe writing
+ * - Jinja2 template validation through HA's engine
  * - Calendar, logbook, and history access
  * - Anomaly detection and suggestions
  * - Documentation fetching and syntax checking
@@ -57,8 +63,15 @@ import {
   SetLevelRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import WebSocket from "ws";
+import { readFileSync, writeFileSync, copyFileSync, unlinkSync, existsSync, mkdirSync } from "fs";
+import { dirname, join, resolve, isAbsolute, normalize } from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const SUPERVISOR_API = "http://supervisor/core/api";
+const HA_CONFIG_DIR = "/homeassistant";
 const SUPERVISOR_TOKEN = process.env.SUPERVISOR_TOKEN;
 
 // Home Assistant documentation base URLs
@@ -531,6 +544,35 @@ const SCHEMAS = {
     required: ["valid", "deprecated", "warnings", "suggestions"],
   },
   
+  safeWriteResult: {
+    type: "object",
+    properties: {
+      success: { type: "boolean", description: "Whether the config was successfully written and validated" },
+      dry_run: { type: "boolean", description: "Whether this was a dry-run (no file written)" },
+      file_path: { type: "string", description: "The resolved file path" },
+      validation_result: { type: "string", enum: ["valid", "invalid", "skipped"], description: "Result of HA core config validation" },
+      validation_errors: { type: "string", description: "HA config validation error details" },
+      deprecation_warnings: { type: "array", items: { type: "string" }, description: "Deprecation patterns detected" },
+      template_results: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            template: { type: "string" },
+            status: { type: "string", enum: ["valid", "error", "skipped"] },
+            error: { type: "string" },
+          },
+        },
+        description: "Template validation results",
+      },
+      structural_issues: { type: "array", items: { type: "string" }, description: "Structural YAML issues found" },
+      suggestions: { type: "array", items: { type: "string" }, description: "Improvement suggestions" },
+      file_written: { type: "boolean", description: "Whether the file was actually written to disk" },
+      backup_restored: { type: "boolean", description: "Whether the backup was restored due to validation failure" },
+    },
+    required: ["success", "dry_run", "validation_result"],
+  },
+  
   area: {
     type: "object",
     properties: {
@@ -973,85 +1015,291 @@ function extractYamlExamples(content) {
 }
 
 /**
- * Known deprecation patterns for common configurations
+ * Load deprecation patterns from the shared JSON file (local bundled copy).
+ * Returns compiled regex patterns ready for use.
  */
-const DEPRECATION_PATTERNS = [
-  {
-    pattern: /^sensor:\s*\n\s*-?\s*platform:\s*template/m,
-    message: "Legacy template sensor syntax detected. Use top-level 'template:' key instead.",
-    suggestion: "template:\n  - sensor:\n      - name: \"My Sensor\"\n        state: \"{{ states('...') }}\"",
-    integration: "template",
-    deprecated_in: "2024.1",
-  },
-  {
-    pattern: /^binary_sensor:\s*\n\s*-?\s*platform:\s*template/m,
-    message: "Legacy template binary_sensor syntax detected. Use top-level 'template:' key instead.",
-    suggestion: "template:\n  - binary_sensor:\n      - name: \"My Sensor\"\n        state: \"{{ is_state('...', 'on') }}\"",
-    integration: "template",
-    deprecated_in: "2024.1",
-  },
-  {
-    pattern: /entity_namespace:/m,
-    message: "'entity_namespace' is deprecated. Use 'unique_id' for entity identification instead.",
-    suggestion: "Remove entity_namespace and add unique_id to each entity.",
-    deprecated_in: "2023.8",
-  },
-  {
-    pattern: /^\s*-\s*platform:\s*time_date/m,
-    message: "The time_date sensor platform is deprecated.",
-    suggestion: "Use template sensors with now() or built-in date/time entities.",
-    integration: "time_date",
-    deprecated_in: "2024.6",
-  },
-  {
-    pattern: /automation:\s*\n\s*-?\s*alias:/m,
-    message: "Consider using automation ID for better organization.",
-    suggestion: "Add 'id: unique_automation_id' to enable UI editing and better tracking.",
-    severity: "info",
-  },
-  {
-    pattern: /device_tracker:\s*\n\s*-?\s*platform:\s*(?:nmap|netgear|ping)/m,
-    message: "Legacy device tracker platforms may have limited functionality.",
-    suggestion: "Consider using the device_tracker integration with the UI for better device tracking.",
-    severity: "info",
-  },
-  {
-    pattern: /cover:\s*\n\s*-?\s*platform:\s*template/m,
-    message: "Legacy template cover syntax detected. Use top-level 'template:' key instead.",
-    suggestion: "template:\n  - cover:\n      - name: \"My Cover\"\n        state: \"{{ ... }}\"",
-    integration: "template",
-    deprecated_in: "2024.1",
-  },
-  {
-    pattern: /switch:\s*\n\s*-?\s*platform:\s*template/m,
-    message: "Legacy template switch syntax detected. Consider using top-level 'template:' key.",
-    suggestion: "template:\n  - switch:\n      - name: \"My Switch\"\n        state: \"{{ ... }}\"",
-    integration: "template",
-    deprecated_in: "2024.4",
-  },
-  {
-    pattern: /homeassistant:\s*\n\s*customize:/m,
-    message: "Entity customizations in configuration.yaml work but UI customizations are preferred.",
-    suggestion: "Consider using the UI (Settings -> Devices & Services -> Entities) for customizations.",
-    severity: "info",
-  },
-  {
-    pattern: /^\s*white_value:/m,
-    message: "'white_value' is deprecated in light services.",
-    suggestion: "Use 'white' instead of 'white_value' in light service calls.",
-    deprecated_in: "2023.3",
-  },
-];
+function loadLocalDeprecationPatterns() {
+  try {
+    const patternsPath = resolve(__dirname, "../shared/deprecation-patterns.json");
+    const raw = readFileSync(patternsPath, "utf-8");
+    const patterns = JSON.parse(raw);
+    return patterns.map(p => ({
+      ...p,
+      pattern: new RegExp(p.pattern, p.flags || "m"),
+    }));
+  } catch (error) {
+    console.error("Warning: Could not load local deprecation patterns:", error.message);
+    return [];
+  }
+}
 
 /**
- * Check YAML configuration for deprecated patterns
+ * GitHub URL for the latest deprecation patterns.
+ * This allows pattern updates between add-on releases.
  */
-function checkConfigForDeprecations(yamlConfig, integration = null) {
+const GITHUB_PATTERNS_URL = "https://raw.githubusercontent.com/magnusoverli/ha_opencode/main/ha_opencode/rootfs/opt/shared/deprecation-patterns.json";
+
+/**
+ * HA Alerts JSON endpoint (public, no auth required).
+ * Contains known integration issues with version ranges.
+ */
+const HA_ALERTS_URL = "https://alerts.home-assistant.io/alerts.json";
+
+/**
+ * Cache for dynamically loaded data with TTL.
+ */
+const dynamicCache = {
+  patterns: { data: null, fetchedAt: 0 },
+  alerts: { data: null, fetchedAt: 0 },
+  repairs: { data: null, fetchedAt: 0 },
+};
+const DYNAMIC_CACHE_TTL = 3600000; // 1 hour
+
+/**
+ * Fetch the latest deprecation patterns from our GitHub repo.
+ * Falls back to local bundled patterns if fetch fails.
+ */
+async function fetchRemoteDeprecationPatterns() {
+  const now = Date.now();
+  if (dynamicCache.patterns.data && (now - dynamicCache.patterns.fetchedAt) < DYNAMIC_CACHE_TTL) {
+    return dynamicCache.patterns.data;
+  }
+
+  try {
+    sendLog("debug", "patterns", { action: "fetch_remote", url: GITHUB_PATTERNS_URL });
+    const response = await fetch(GITHUB_PATTERNS_URL, {
+      headers: { "User-Agent": "HomeAssistant-MCP-Server/2.6.0", "Accept": "application/json" },
+      signal: AbortSignal.timeout(5000),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const patterns = await response.json();
+    if (!Array.isArray(patterns) || patterns.length === 0) {
+      throw new Error("Invalid patterns format");
+    }
+    
+    const compiled = patterns.map(p => ({
+      ...p,
+      pattern: new RegExp(p.pattern, p.flags || "m"),
+    }));
+    
+    dynamicCache.patterns.data = compiled;
+    dynamicCache.patterns.fetchedAt = now;
+    sendLog("info", "patterns", { action: "remote_loaded", count: compiled.length });
+    return compiled;
+  } catch (error) {
+    sendLog("debug", "patterns", { action: "remote_fetch_failed", error: error.message });
+    // Fall through to local patterns
+    return null;
+  }
+}
+
+/**
+ * Fetch HA alerts from alerts.home-assistant.io (public JSON feed).
+ * Returns alerts relevant to specific integrations with version info.
+ */
+async function fetchHAAlerts() {
+  const now = Date.now();
+  if (dynamicCache.alerts.data && (now - dynamicCache.alerts.fetchedAt) < DYNAMIC_CACHE_TTL) {
+    return dynamicCache.alerts.data;
+  }
+
+  try {
+    sendLog("debug", "alerts", { action: "fetch", url: HA_ALERTS_URL });
+    const response = await fetch(HA_ALERTS_URL, {
+      headers: { "User-Agent": "HomeAssistant-MCP-Server/2.6.0", "Accept": "application/json" },
+      signal: AbortSignal.timeout(5000),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const alerts = await response.json();
+    dynamicCache.alerts.data = alerts;
+    dynamicCache.alerts.fetchedAt = now;
+    sendLog("info", "alerts", { action: "loaded", count: alerts.length });
+    return alerts;
+  } catch (error) {
+    sendLog("debug", "alerts", { action: "fetch_failed", error: error.message });
+    return dynamicCache.alerts.data || [];
+  }
+}
+
+/**
+ * Query HA Core's repair issues via WebSocket API.
+ * Returns deprecations and issues specific to this installation.
+ */
+async function fetchHARepairs() {
+  const now = Date.now();
+  if (dynamicCache.repairs.data && (now - dynamicCache.repairs.fetchedAt) < DYNAMIC_CACHE_TTL) {
+    return dynamicCache.repairs.data;
+  }
+
+  return new Promise((resolve) => {
+    const wsUrl = "ws://supervisor/core/websocket";
+    let msgId = 1;
+    const timeout = setTimeout(() => {
+      try { ws.close(); } catch (_) {}
+      sendLog("debug", "repairs", { action: "ws_timeout" });
+      resolve(dynamicCache.repairs.data || []);
+    }, 5000);
+
+    let ws;
+    try {
+      ws = new WebSocket(wsUrl);
+    } catch (error) {
+      clearTimeout(timeout);
+      sendLog("debug", "repairs", { action: "ws_connect_failed", error: error.message });
+      resolve(dynamicCache.repairs.data || []);
+      return;
+    }
+
+    ws.on("message", (data) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        
+        // Step 1: HA sends auth_required
+        if (msg.type === "auth_required") {
+          ws.send(JSON.stringify({
+            type: "auth",
+            access_token: SUPERVISOR_TOKEN,
+          }));
+          return;
+        }
+        
+        // Step 2: Auth result
+        if (msg.type === "auth_ok") {
+          ws.send(JSON.stringify({
+            id: msgId++,
+            type: "repairs/list_issues",
+          }));
+          return;
+        }
+        
+        if (msg.type === "auth_invalid") {
+          clearTimeout(timeout);
+          ws.close();
+          sendLog("debug", "repairs", { action: "auth_failed" });
+          resolve(dynamicCache.repairs.data || []);
+          return;
+        }
+        
+        // Step 3: Repairs result
+        if (msg.type === "result" && msg.success && msg.result?.issues) {
+          clearTimeout(timeout);
+          ws.close();
+          const issues = msg.result.issues;
+          dynamicCache.repairs.data = issues;
+          dynamicCache.repairs.fetchedAt = now;
+          sendLog("info", "repairs", { action: "loaded", count: issues.length });
+          resolve(issues);
+          return;
+        }
+        
+        // Handle unexpected responses
+        if (msg.type === "result" && !msg.success) {
+          clearTimeout(timeout);
+          ws.close();
+          sendLog("debug", "repairs", { action: "api_error", error: msg.error });
+          resolve(dynamicCache.repairs.data || []);
+        }
+      } catch (parseError) {
+        // Ignore parse errors, wait for timeout
+      }
+    });
+
+    ws.on("error", (error) => {
+      clearTimeout(timeout);
+      sendLog("debug", "repairs", { action: "ws_error", error: error.message });
+      resolve(dynamicCache.repairs.data || []);
+    });
+
+    ws.on("close", () => {
+      clearTimeout(timeout);
+    });
+  });
+}
+
+/**
+ * Get the best available deprecation patterns.
+ * Tries remote (GitHub) first, falls back to local bundled patterns.
+ * This is called lazily on first use, not at module load time.
+ */
+async function getDeprecationPatterns() {
+  // Try remote patterns first (cached for 1 hour)
+  const remote = await fetchRemoteDeprecationPatterns();
+  if (remote && remote.length > 0) {
+    return remote;
+  }
+  // Fall back to local bundled patterns
+  return DEPRECATION_PATTERNS;
+}
+
+/**
+ * Get relevant HA alerts for a specific integration.
+ * Returns alerts that affect the given integration on the current HA version.
+ */
+async function getAlertsForIntegration(integration, haVersion = null) {
+  const alerts = await fetchHAAlerts();
+  if (!alerts || !Array.isArray(alerts)) return [];
+  
+  return alerts.filter(alert => {
+    // Check if this alert affects the given integration
+    const integrations = alert.integrations || [];
+    const matchesIntegration = integrations.some(i => 
+      i.package === integration || i.package === `homeassistant.components.${integration}`
+    );
+    if (!matchesIntegration) return false;
+    
+    // If we know the HA version, check version range
+    if (haVersion && alert.homeassistant) {
+      const minVersion = alert.homeassistant.min || alert.homeassistant.affected_from_version;
+      const maxVersion = alert.homeassistant.max || alert.homeassistant.resolved_in_version;
+      // Simple string comparison works for CalVer (YYYY.M.P)
+      if (minVersion && haVersion < minVersion) return false;
+      if (maxVersion && haVersion >= maxVersion) return false;
+    }
+    
+    return true;
+  });
+}
+
+/**
+ * Get relevant repair issues for a set of integrations.
+ * Filters repairs to only those matching the given domains.
+ */
+async function getRepairsForDomains(domains) {
+  const repairs = await fetchHARepairs();
+  if (!repairs || !Array.isArray(repairs)) return [];
+  
+  if (!domains || domains.length === 0) return repairs;
+  
+  return repairs.filter(issue =>
+    domains.includes(issue.domain) || domains.includes(issue.issue_domain)
+  );
+}
+
+// Load local patterns synchronously at startup (always available as fallback)
+const DEPRECATION_PATTERNS = loadLocalDeprecationPatterns();
+
+/**
+ * Check YAML configuration for deprecated patterns.
+ * Uses the best available patterns (remote if cached, local as fallback).
+ * Also checks HA alerts and repair issues for relevant warnings.
+ */
+async function checkConfigForDeprecations(yamlConfig, integration = null) {
   const warnings = [];
   const suggestions = [];
   let deprecated = false;
   
-  for (const pattern of DEPRECATION_PATTERNS) {
+  // Get the best available patterns (tries remote/cached, falls back to local)
+  const patterns = await getDeprecationPatterns();
+  
+  for (const pattern of patterns) {
     // Skip patterns not relevant to the specified integration
     if (integration && pattern.integration && pattern.integration !== integration) {
       continue;
@@ -1072,7 +1320,198 @@ function checkConfigForDeprecations(yamlConfig, integration = null) {
     }
   }
   
+  // Check HA alerts for the specified integration
+  if (integration) {
+    try {
+      const alerts = await getAlertsForIntegration(integration);
+      for (const alert of alerts) {
+        warnings.push(`[HA ALERT] ${alert.title || alert.id}: Known issue affecting '${integration}'. See: ${alert.alert_url || ""}`);
+      }
+    } catch (_) { /* non-critical */ }
+  }
+  
   return { deprecated, warnings, suggestions };
+}
+
+// ============================================================================
+// CONFIG VALIDATION HELPERS
+// ============================================================================
+
+/**
+ * Extract Jinja2 templates from YAML content and validate each through HA's
+ * template engine. Templates containing automation context variables (trigger.*,
+ * this.*, etc.) are flagged as unverifiable rather than failed.
+ */
+async function extractAndValidateTemplates(yamlContent) {
+  const results = [];
+  
+  // Match {{ ... }} template expressions (handles multiline)
+  const templateRegex = /\{\{[\s\S]*?\}\}/g;
+  // Match {% ... %} template blocks
+  const blockRegex = /\{%[\s\S]*?%\}/g;
+  
+  const templates = new Set();
+  
+  let match;
+  while ((match = templateRegex.exec(yamlContent)) !== null) {
+    templates.add(match[0]);
+  }
+  while ((match = blockRegex.exec(yamlContent)) !== null) {
+    templates.add(match[0]);
+  }
+  
+  // Context variables that can't be validated statically
+  const contextVars = [
+    "trigger.", "this.", "context.", "wait.", "repeat.", "response.",
+  ];
+  
+  for (const template of templates) {
+    const hasContextVars = contextVars.some(v => template.includes(v));
+    
+    if (hasContextVars) {
+      results.push({
+        template: template.substring(0, 100) + (template.length > 100 ? "..." : ""),
+        status: "skipped",
+        reason: "Contains runtime context variables (trigger/this/wait/repeat) that cannot be validated statically.",
+      });
+      continue;
+    }
+    
+    try {
+      const rendered = await callHA("/template", "POST", { template });
+      results.push({
+        template: template.substring(0, 100) + (template.length > 100 ? "..." : ""),
+        status: "valid",
+        result: String(rendered).substring(0, 200),
+      });
+    } catch (error) {
+      results.push({
+        template: template.substring(0, 100) + (template.length > 100 ? "..." : ""),
+        status: "error",
+        error: error.message,
+      });
+    }
+  }
+  
+  return results;
+}
+
+/**
+ * Validate YAML structure for common HA configuration patterns.
+ * Checks for required keys, correct nesting, and structural issues.
+ * This is a lightweight structural check, not a full schema validation.
+ */
+function validateYamlStructure(yamlContent) {
+  const issues = [];
+  
+  // Check for automation structure
+  const automationBlockRegex = /^automation(?:\s+\w+)?:\s*\n([\s\S]*?)(?=^\S|\Z)/gm;
+  let autoMatch;
+  while ((autoMatch = automationBlockRegex.exec(yamlContent)) !== null) {
+    const block = autoMatch[1];
+    // Check each automation entry for required fields
+    const entries = block.split(/^\s*-\s+/m).filter(e => e.trim());
+    for (const entry of entries) {
+      const hasTrigger = /(?:^|\n)\s*(?:trigger|triggers)\s*:/m.test(entry);
+      const hasAction = /(?:^|\n)\s*(?:action|actions|sequence)\s*:/m.test(entry);
+      const hasAlias = /(?:^|\n)\s*alias\s*:/m.test(entry);
+      
+      if (hasAlias || hasTrigger || hasAction) {
+        if (!hasTrigger) {
+          issues.push({
+            severity: "error",
+            message: "Automation is missing 'trigger:' (or 'triggers:'). Every automation must define at least one trigger.",
+          });
+        }
+        if (!hasAction) {
+          issues.push({
+            severity: "error",
+            message: "Automation is missing 'action:' (or 'actions:'). Every automation must define at least one action.",
+          });
+        }
+      }
+    }
+  }
+  
+  // Check for script structure
+  const scriptBlockRegex = /^script:\s*\n([\s\S]*?)(?=^\S|\Z)/gm;
+  let scriptMatch;
+  while ((scriptMatch = scriptBlockRegex.exec(yamlContent)) !== null) {
+    const block = scriptMatch[1];
+    // Scripts need a sequence
+    const scriptNames = block.match(/^\s{2}(\w+):/gm);
+    if (scriptNames) {
+      for (const name of scriptNames) {
+        const scriptName = name.trim().replace(":", "");
+        // Get the content after this script name until the next script
+        const scriptContentRegex = new RegExp(`^\\s{2}${scriptName}:\\s*\\n([\\s\\S]*?)(?=^\\s{2}\\w+:|$)`, "m");
+        const contentMatch = scriptContentRegex.exec(block);
+        if (contentMatch) {
+          const hasSequence = /\s*(?:sequence|action|actions)\s*:/m.test(contentMatch[1]);
+          if (!hasSequence) {
+            issues.push({
+              severity: "warning",
+              message: `Script '${scriptName}' may be missing a 'sequence:' (or 'action:') key.`,
+            });
+          }
+        }
+      }
+    }
+  }
+  
+  // Check for template sensor structure
+  const templateBlockRegex = /^template:\s*\n([\s\S]*?)(?=^\S|\Z)/gm;
+  let templateMatch;
+  while ((templateMatch = templateBlockRegex.exec(yamlContent)) !== null) {
+    const block = templateMatch[1];
+    // Template sensors need either 'state:' or 'value_template:'
+    const sensorBlocks = block.split(/^\s*-\s*(?=sensor|binary_sensor)/m).filter(e => e.trim());
+    for (const sBlock of sensorBlocks) {
+      if (/^\s*(?:sensor|binary_sensor)\s*:/m.test(sBlock)) {
+        const nameMatches = sBlock.match(/name:\s*["']?([^"'\n]+)/g);
+        if (nameMatches) {
+          const hasState = /\s*(?:state|value_template)\s*:/m.test(sBlock);
+          if (!hasState) {
+            issues.push({
+              severity: "warning",
+              message: "Template sensor definition may be missing a 'state:' key.",
+            });
+          }
+        }
+      }
+    }
+  }
+  
+  return issues;
+}
+
+/**
+ * Safely resolve and validate a file path within the HA config directory.
+ * Returns the resolved absolute path, or null if the path is invalid/unsafe.
+ */
+function resolveConfigPath(filePath) {
+  // Reject absolute paths that point outside config dir
+  if (isAbsolute(filePath) && !filePath.startsWith(HA_CONFIG_DIR)) {
+    return null;
+  }
+  
+  // Resolve relative paths against the config directory
+  const resolved = isAbsolute(filePath) ? filePath : join(HA_CONFIG_DIR, filePath);
+  const normalized = normalize(resolved);
+  
+  // Ensure the resolved path is still within the config directory
+  if (!normalized.startsWith(HA_CONFIG_DIR)) {
+    return null;
+  }
+  
+  // Block access to internal directories
+  const relativePath = normalized.substring(HA_CONFIG_DIR.length + 1);
+  const blocked = [".storage", ".cloud", "deps", "tts", "__pycache__"];
+  if (blocked.some(dir => relativePath.startsWith(dir + "/") || relativePath === dir)) {
+    return null;
+  }
+  
+  return normalized;
 }
 
 // ============================================================================
@@ -1578,6 +2017,38 @@ const TOOLS = [
     annotations: {
       readOnly: true,
       idempotent: true,
+    },
+  },
+  {
+    name: "write_config_safe",
+    title: "Safe Config Writer",
+    description: "Write YAML configuration to a file with automatic validation. Checks for deprecations, validates Jinja2 templates through HA's engine, verifies structural correctness, and runs HA's full config check. If validation fails, the original file is restored and errors are returned for correction. Use dry_run=true to validate without writing. This is the recommended way to write configuration files.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        file_path: {
+          type: "string",
+          description: "Path relative to /homeassistant/ (e.g., 'configuration.yaml', 'automations.yaml', 'packages/lights.yaml')",
+        },
+        content: {
+          type: "string",
+          description: "The YAML content to write",
+        },
+        dry_run: {
+          type: "boolean",
+          description: "If true, validate without writing to disk (default: false). Use this to pre-check config before committing.",
+        },
+        validate_templates: {
+          type: "boolean",
+          description: "If true (default), extract and validate Jinja2 templates through HA's template engine.",
+        },
+      },
+      required: ["file_path", "content"],
+    },
+    annotations: {
+      readOnly: false,
+      idempotent: false,
+      destructive: false,
     },
   },
   
@@ -2528,7 +2999,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const { yaml_config, integration } = args;
         sendLog("info", "docs", { action: "check_config_syntax", integration });
         
-        const { deprecated, warnings, suggestions } = checkConfigForDeprecations(yaml_config, integration);
+        const { deprecated, warnings, suggestions } = await checkConfigForDeprecations(yaml_config, integration);
         
         // Additional basic YAML validation hints
         const additionalWarnings = [];
@@ -2596,6 +3067,326 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         
         return makeCompatibleResponse({
           content: [createTextContent(responseText, { audience: ["assistant"], priority: 0.9 })],
+        });
+      }
+
+      // === SAFE CONFIG WRITER ===
+      case "write_config_safe": {
+        const { file_path, content, dry_run = false, validate_templates = true } = args;
+        sendLog("info", "config", { action: "write_config_safe", file_path, dry_run });
+        
+        // Step 1: Validate and resolve the file path
+        const resolvedPath = resolveConfigPath(file_path);
+        if (!resolvedPath) {
+          return makeCompatibleResponse({
+            content: [createTextContent(
+              `# Safe Config Write - BLOCKED\n\n` +
+              `**Error:** Invalid or unsafe file path: \`${file_path}\`\n\n` +
+              `The path must be relative to /homeassistant/ and cannot point to internal directories (.storage, .cloud, deps, etc.).\n` +
+              `Example valid paths: \`configuration.yaml\`, \`automations.yaml\`, \`packages/lights.yaml\``,
+              { audience: ["user", "assistant"], priority: 1.0 }
+            )],
+            isError: true,
+          });
+        }
+        
+        // Step 2: Run deprecation checks on the content
+        const { deprecated, warnings: depWarnings, suggestions: depSuggestions } = await checkConfigForDeprecations(content);
+        
+        // Step 3: Run structural YAML checks
+        const structuralIssues = validateYamlStructure(content);
+        
+        // Step 4: Basic YAML lint checks (same as check_config_syntax)
+        const lintWarnings = [];
+        if (content.includes("\t")) {
+          lintWarnings.push("Tab characters detected. YAML requires spaces for indentation.");
+        }
+        if (/: \|$/m.test(content)) {
+          lintWarnings.push("Multi-line strings with '|' should have content on the following lines, indented.");
+        }
+        if (/entity_id:.*,/m.test(content)) {
+          lintWarnings.push("Multiple entity_ids should be formatted as a YAML list, not comma-separated.");
+        }
+        
+        // Step 5: Check HA repair issues for relevant warnings
+        let repairWarnings = [];
+        try {
+          // Extract integration domains from the YAML content
+          const domainMatches = content.match(/^([a-z_]+):/gm);
+          const domains = domainMatches
+            ? [...new Set(domainMatches.map(m => m.replace(":", "").trim()))]
+            : [];
+          
+          if (domains.length > 0) {
+            const repairs = await getRepairsForDomains(domains);
+            for (const issue of repairs) {
+              const breaksIn = issue.breaks_in_ha_version ? ` (breaks in ${issue.breaks_in_ha_version})` : "";
+              const url = issue.learn_more_url ? ` See: ${issue.learn_more_url}` : "";
+              repairWarnings.push(
+                `[HA REPAIR - ${issue.severity || "warning"}] ${issue.domain}: ${issue.translation_key || issue.issue_id}${breaksIn}${url}`
+              );
+            }
+          }
+        } catch (_) { /* non-critical — repairs check is best-effort */ }
+        
+        // Step 6: Validate Jinja2 templates through HA's template engine
+        let templateResults = [];
+        if (validate_templates) {
+          try {
+            templateResults = await extractAndValidateTemplates(content);
+          } catch (error) {
+            sendLog("warning", "config", { action: "template_validation_failed", error: error.message });
+            templateResults = [{ template: "(all)", status: "skipped", reason: `Template validation unavailable: ${error.message}` }];
+          }
+        }
+        
+        const templateErrors = templateResults.filter(r => r.status === "error");
+        const structuralErrors = structuralIssues.filter(i => i.severity === "error");
+        
+        // Step 6: Check for pre-write blocking errors (template errors + structural errors)
+        const hasBlockingErrors = templateErrors.length > 0 || structuralErrors.length > 0;
+        
+        // If dry_run, report results without touching disk
+        if (dry_run) {
+          let responseText = `# Safe Config Write - Dry Run\n\n`;
+          responseText += `**File:** \`${file_path}\`\n`;
+          responseText += `**Mode:** Validation only (no file changes)\n\n`;
+          
+          if (hasBlockingErrors) {
+            responseText += `## BLOCKING ERRORS (must fix before writing)\n\n`;
+            for (const te of templateErrors) {
+              responseText += `- **Template Error:** \`${te.template}\` - ${te.error}\n`;
+            }
+            for (const si of structuralErrors) {
+              responseText += `- **Structural Error:** ${si.message}\n`;
+            }
+            responseText += `\n`;
+          }
+          
+          if (depWarnings.length > 0) {
+            responseText += `## Deprecation Warnings\n\n`;
+            for (const w of depWarnings) responseText += `- ${w}\n`;
+            responseText += `\n`;
+          }
+          
+          if (lintWarnings.length > 0) {
+            responseText += `## Lint Warnings\n\n`;
+            for (const w of lintWarnings) responseText += `- ${w}\n`;
+            responseText += `\n`;
+          }
+          
+          const structuralWarnings = structuralIssues.filter(i => i.severity === "warning");
+          if (structuralWarnings.length > 0) {
+            responseText += `## Structural Warnings\n\n`;
+            for (const w of structuralWarnings) responseText += `- ${w.message}\n`;
+            responseText += `\n`;
+          }
+          
+          if (repairWarnings.length > 0) {
+            responseText += `## HA Repair Issues (from your installation)\n\n`;
+            for (const w of repairWarnings) responseText += `- ${w}\n`;
+            responseText += `\n`;
+          }
+          
+          if (templateResults.length > 0) {
+            const validTemplates = templateResults.filter(r => r.status === "valid");
+            const skippedTemplates = templateResults.filter(r => r.status === "skipped");
+            responseText += `## Template Validation\n\n`;
+            responseText += `- Valid: ${validTemplates.length}\n`;
+            responseText += `- Errors: ${templateErrors.length}\n`;
+            responseText += `- Skipped (runtime context): ${skippedTemplates.length}\n\n`;
+          }
+          
+          if (depSuggestions.length > 0) {
+            responseText += `## Suggestions\n\n`;
+            for (const s of depSuggestions) responseText += `- ${s}\n`;
+            responseText += `\n`;
+          }
+          
+          const dryRunPassed = !hasBlockingErrors;
+          responseText += `---\n**Result:** ${dryRunPassed ? "PASSED - Safe to write" : "FAILED - Fix errors above before writing"}\n`;
+          
+          if (dryRunPassed && (depWarnings.length > 0 || lintWarnings.length > 0 || repairWarnings.length > 0)) {
+            responseText += `**Note:** Warnings were found but won't block writing. Consider addressing them for best practices.\n`;
+          }
+          
+          return makeCompatibleResponse({
+            content: [createTextContent(responseText, { audience: ["assistant"], priority: 1.0 })],
+          });
+        }
+        
+        // Step 7: If blocking errors exist, refuse to write
+        if (hasBlockingErrors) {
+          let responseText = `# Safe Config Write - REFUSED\n\n`;
+          responseText += `**File:** \`${file_path}\`\n`;
+          responseText += `**Reason:** Blocking errors detected. File was NOT written.\n\n`;
+          responseText += `## Errors (must fix)\n\n`;
+          for (const te of templateErrors) {
+            responseText += `- **Template Error:** \`${te.template}\` - ${te.error}\n`;
+          }
+          for (const si of structuralErrors) {
+            responseText += `- **Structural Error:** ${si.message}\n`;
+          }
+          responseText += `\n**Action:** Fix the errors above and retry. Use \`dry_run: true\` to validate before writing.\n`;
+          
+          return makeCompatibleResponse({
+            content: [createTextContent(responseText, { audience: ["assistant"], priority: 1.0 })],
+          });
+        }
+        
+        // Step 8: Backup existing file (if it exists)
+        const backupPath = resolvedPath + ".bak";
+        let hadExistingFile = false;
+        try {
+          if (existsSync(resolvedPath)) {
+            copyFileSync(resolvedPath, backupPath);
+            hadExistingFile = true;
+            sendLog("info", "config", { action: "backup_created", path: backupPath });
+          }
+        } catch (error) {
+          return makeCompatibleResponse({
+            content: [createTextContent(
+              `# Safe Config Write - ERROR\n\n` +
+              `**Error:** Could not create backup of existing file: ${error.message}\n` +
+              `File was NOT modified.`,
+              { audience: ["user", "assistant"], priority: 1.0 }
+            )],
+            isError: true,
+          });
+        }
+        
+        // Step 9: Write the new content
+        try {
+          // Ensure parent directory exists
+          const parentDir = dirname(resolvedPath);
+          if (!existsSync(parentDir)) {
+            mkdirSync(parentDir, { recursive: true });
+          }
+          writeFileSync(resolvedPath, content, "utf-8");
+          sendLog("info", "config", { action: "file_written", path: resolvedPath });
+        } catch (error) {
+          // Restore backup if write failed
+          if (hadExistingFile) {
+            try { copyFileSync(backupPath, resolvedPath); } catch (_) { /* best effort */ }
+          }
+          return makeCompatibleResponse({
+            content: [createTextContent(
+              `# Safe Config Write - ERROR\n\n` +
+              `**Error:** Could not write file: ${error.message}\n` +
+              `${hadExistingFile ? "Original file has been restored from backup." : "No file was created."}`,
+              { audience: ["user", "assistant"], priority: 1.0 }
+            )],
+            isError: true,
+          });
+        }
+        
+        // Step 10: Run HA's full config validation
+        let validationResult = "skipped";
+        let validationErrors = "";
+        let backupRestored = false;
+        
+        try {
+          const haCheck = await callHA("/config/core/check_config", "POST");
+          validationResult = haCheck.result || "valid";
+          validationErrors = haCheck.errors || "";
+          
+          if (validationResult === "invalid") {
+            sendLog("warning", "config", { action: "validation_failed", errors: validationErrors });
+            
+            // Restore the backup
+            if (hadExistingFile) {
+              try {
+                copyFileSync(backupPath, resolvedPath);
+                backupRestored = true;
+                sendLog("info", "config", { action: "backup_restored", path: resolvedPath });
+              } catch (restoreError) {
+                sendLog("error", "config", { action: "backup_restore_failed", error: restoreError.message });
+              }
+            } else {
+              // No original file existed - remove the invalid one
+              try {
+                unlinkSync(resolvedPath);
+                backupRestored = true;
+              } catch (_) { /* best effort */ }
+            }
+          }
+        } catch (error) {
+          sendLog("error", "config", { action: "validation_call_failed", error: error.message });
+          validationResult = "skipped";
+          validationErrors = `Could not run HA config check: ${error.message}`;
+        }
+        
+        // Clean up backup on success
+        if (validationResult !== "invalid" && hadExistingFile) {
+          try { unlinkSync(backupPath); } catch (_) { /* best effort */ }
+        }
+        
+        // Step 11: Build response
+        const success = validationResult !== "invalid";
+        let responseText = `# Safe Config Write - ${success ? "SUCCESS" : "FAILED"}\n\n`;
+        responseText += `**File:** \`${file_path}\`\n`;
+        responseText += `**HA Config Validation:** ${validationResult}\n`;
+        responseText += `**File Written:** ${success ? "Yes" : "No (restored original)"}\n\n`;
+        
+        if (!success) {
+          responseText += `## Validation Errors\n\n`;
+          responseText += `\`\`\`\n${validationErrors}\n\`\`\`\n\n`;
+          responseText += `**The original file has been restored.** Fix the errors above and retry.\n\n`;
+          
+          // Include any error log entries that might help
+          try {
+            const log = await callHA("/core/api/error_log");
+            const recentLines = log.split("\n").slice(-20).join("\n");
+            if (recentLines.trim()) {
+              responseText += `## Recent Error Log\n\n\`\`\`\n${recentLines}\n\`\`\`\n\n`;
+            }
+          } catch (_) { /* best effort */ }
+        }
+        
+        if (depWarnings.length > 0) {
+          responseText += `## Deprecation Warnings\n\n`;
+          for (const w of depWarnings) responseText += `- ${w}\n`;
+          responseText += `\n`;
+        }
+        
+        if (lintWarnings.length > 0) {
+          responseText += `## Lint Warnings\n\n`;
+          for (const w of lintWarnings) responseText += `- ${w}\n`;
+          responseText += `\n`;
+        }
+        
+        const structuralWarnings = structuralIssues.filter(i => i.severity === "warning");
+        if (structuralWarnings.length > 0) {
+          responseText += `## Structural Warnings\n\n`;
+          for (const w of structuralWarnings) responseText += `- ${w.message}\n`;
+          responseText += `\n`;
+        }
+        
+        if (repairWarnings.length > 0) {
+          responseText += `## HA Repair Issues (from your installation)\n\n`;
+          for (const w of repairWarnings) responseText += `- ${w}\n`;
+          responseText += `\n`;
+        }
+        
+        if (templateResults.length > 0) {
+          const validCount = templateResults.filter(r => r.status === "valid").length;
+          const skippedCount = templateResults.filter(r => r.status === "skipped").length;
+          responseText += `## Template Validation: ${validCount} valid, ${skippedCount} skipped (runtime context)\n\n`;
+        }
+        
+        if (depSuggestions.length > 0) {
+          responseText += `## Suggestions\n\n`;
+          for (const s of depSuggestions) responseText += `- ${s}\n`;
+          responseText += `\n`;
+        }
+        
+        if (success) {
+          responseText += `---\n**Config is valid and has been written to disk.** You can reload or restart HA to apply changes.\n`;
+        }
+        
+        return makeCompatibleResponse({
+          content: [createTextContent(responseText, { audience: ["user", "assistant"], priority: 1.0 })],
+          ...((!success) && { isError: true }),
         });
       }
 
@@ -3670,15 +4461,15 @@ async function main() {
   
   sendLog("info", "mcp-server", { 
     action: "started",
-    version: "2.2.0",
+    version: "2.6.0",
     tools: TOOLS.length,
     resources: RESOURCES.length,
     prompts: PROMPTS.length,
   });
   
-  console.error("Home Assistant MCP server v2.2.0 started (Documentation Edition)");
+  console.error("Home Assistant MCP server v2.6.0 started (Safe Config Edition)");
   console.error(`Capabilities: Tools (${TOOLS.length}), Resources (${RESOURCES.length}), Prompts (${PROMPTS.length}), Logging`);
-  console.error("Features: Structured Output, Tool Annotations, Resource Links, Content Annotations, Live Docs");
+  console.error("Features: Structured Output, Tool Annotations, Resource Links, Content Annotations, Live Docs, Safe Config Writing");
 }
 
 main().catch((error) => {

@@ -454,6 +454,7 @@ Query and interact with the running Home Assistant instance:
 - `call_service` - Control devices (with confirmation)
 - `get_history`, `get_logbook` - Historical data
 - `get_devices`, `get_areas` - Device and area registry info
+- `write_config_safe` - **Safe config writing with automatic validation and backup/restore**
 - `validate_config` - Check configuration validity
 - `get_error_log` - System errors and warnings
 - `diagnose_entity` - Comprehensive entity troubleshooting
@@ -464,7 +465,7 @@ Query and interact with the running Home Assistant instance:
 
 | Task | Configuration Files | MCP Tools |
 |------|---------------------|-----------|
-| Create/edit automations | Primary | Validate with `validate_config` |
+| Create/edit automations | Primary | **Write with `write_config_safe`** |
 | Understand automation logic | Read YAML | Check state with `get_states` |
 | Check current device state | Reference only | Primary |
 | Control devices | N/A | `call_service` |
@@ -505,7 +506,7 @@ Home Assistant releases monthly updates with new features, deprecations, and bre
 1. **Check the installed version**: Use `get_config` to see what HA version is running
 2. **Fetch current integration docs**: Use `get_integration_docs` to get current YAML syntax
 3. **Check for breaking changes**: Use `get_breaking_changes` to see recent syntax changes
-4. **Validate your suggestion**: Use `check_config_syntax` to verify before presenting to user
+4. **Write config safely**: Use `write_config_safe` with `dry_run=true` to validate before presenting to user
 
 ### Documentation Tools (MCP)
 
@@ -513,18 +514,21 @@ Home Assistant releases monthly updates with new features, deprecations, and bre
 |------|-------------|
 | `get_integration_docs` | Before writing ANY integration configuration |
 | `get_breaking_changes` | When user reports config stopped working after update |
-| `check_config_syntax` | Before presenting YAML suggestions to user |
+| `write_config_safe` | **ALWAYS use to write config files** — validates and auto-restores on failure |
+| `check_config_syntax` | Quick ad-hoc deprecation check (write_config_safe includes this automatically) |
 
 ### Workflow Example
 
 When a user asks "Help me set up a template sensor":
 
 ```
-1. get_config()                              -> Check HA version (e.g., 2024.12.1)
-2. get_integration_docs("template")          -> Get current syntax and examples
+1. get_config()                                          -> Check HA version (e.g., 2024.12.1)
+2. get_integration_docs("template")                      -> Get current syntax and examples
 3. Draft configuration using CURRENT syntax from docs
-4. check_config_syntax(yaml, "template")     -> Verify it's valid
-5. Present to user with confidence
+4. write_config_safe(path, yaml, dry_run=true)           -> Pre-validate everything
+5. If errors: fix and repeat step 4
+6. Present validated config to user and get approval
+7. write_config_safe(path, yaml)                         -> Write for real (auto backup + validation)
 ```
 
 ### Common Deprecation Patterns
@@ -534,6 +538,9 @@ Be especially careful with these frequently-changed areas:
 - **Entity configurations**: Many moved from YAML to UI-based config
 - **Trigger-based templates**: Newer syntax preferred over legacy template sensors
 - **Device triggers**: Syntax evolves with new device types
+- **MQTT platform syntax**: `platform: mqtt` under domain keys is deprecated; use top-level `mqtt:` key
+- **Direct state access**: `states.sensor.x.state` is fragile; use `states('sensor.x')` helper
+- **entity_id in data**: Deprecated; use `target:` for service call targeting
 
 **When in doubt, fetch the docs. Never rely solely on training data for configuration syntax.**
 

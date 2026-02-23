@@ -28,7 +28,7 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 import yaml from "yaml";
 import { fileURLToPath } from "url";
 import { dirname, join, resolve, isAbsolute } from "path";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 
 // Destructure from CommonJS default export
 const {
@@ -42,6 +42,73 @@ const {
 } = lsp;
 
 const { parse: parseYaml } = yaml;
+
+const __lsp_filename = fileURLToPath(import.meta.url);
+const __lsp_dirname = dirname(__lsp_filename);
+
+// ============================================================================
+// SHARED DEPRECATION PATTERNS (with remote update support)
+// ============================================================================
+
+const GITHUB_PATTERNS_URL = "https://raw.githubusercontent.com/magnusoverli/ha_opencode/main/ha_opencode/rootfs/opt/shared/deprecation-patterns.json";
+
+/**
+ * Load deprecation patterns from the local shared JSON file.
+ * These patterns are shared with the MCP server for consistency.
+ */
+function loadLocalDeprecationPatterns() {
+  try {
+    const patternsPath = resolve(__lsp_dirname, "../shared/deprecation-patterns.json");
+    const raw = readFileSync(patternsPath, "utf-8");
+    const patterns = JSON.parse(raw);
+    return patterns.map(p => ({
+      ...p,
+      regex: new RegExp(p.pattern, p.flags || "m"),
+    }));
+  } catch (error) {
+    console.error("Warning: Could not load local deprecation patterns:", error.message);
+    return [];
+  }
+}
+
+// Start with local patterns (always available synchronously)
+let DEPRECATION_PATTERNS = loadLocalDeprecationPatterns();
+
+/**
+ * Attempt to fetch updated patterns from GitHub in the background.
+ * If successful, replaces the local patterns. If not, keeps using local.
+ * Runs once on startup with a delay to avoid blocking initialization.
+ */
+async function refreshDeprecationPatternsFromRemote() {
+  try {
+    const response = await fetch(GITHUB_PATTERNS_URL, {
+      headers: { "User-Agent": "HA-LSP-Server/1.0", "Accept": "application/json" },
+      signal: AbortSignal.timeout(5000),
+    });
+    
+    if (!response.ok) return;
+    
+    const patterns = await response.json();
+    if (!Array.isArray(patterns) || patterns.length === 0) return;
+    
+    const compiled = patterns.map(p => ({
+      ...p,
+      regex: new RegExp(p.pattern, p.flags || "m"),
+    }));
+    
+    // Only update if we got more or equal patterns (sanity check)
+    if (compiled.length >= DEPRECATION_PATTERNS.length) {
+      DEPRECATION_PATTERNS = compiled;
+      console.error(`LSP: Updated deprecation patterns from remote (${compiled.length} patterns)`);
+    }
+  } catch (error) {
+    // Silent fail — local patterns remain active
+    console.error(`LSP: Remote pattern fetch skipped: ${error.message}`);
+  }
+}
+
+// Refresh patterns 10 seconds after startup (non-blocking)
+setTimeout(refreshDeprecationPatternsFromRemote, 10000);
 
 // ============================================================================
 // CONSTANTS
@@ -1285,6 +1352,40 @@ async function validateDocument(document) {
           message: `Include file not found: ${ref.path}`,
           source: "ha-lsp",
           code: "include-not-found",
+        });
+      }
+    }
+
+    // Check for deprecated syntax patterns
+    const text = document.getText();
+    for (const dp of DEPRECATION_PATTERNS) {
+      // Only flag warning/error severity patterns, skip info-level
+      if (dp.severity === "info") continue;
+      
+      const match = dp.regex.exec(text);
+      if (match) {
+        const startOffset = match.index;
+        // Highlight just the matched line, not the entire multi-line match
+        const matchedLine = match[0].split("\n")[0];
+        const endOffset = startOffset + matchedLine.length;
+        
+        const severity = dp.deprecated_in
+          ? DiagnosticSeverity.Warning
+          : DiagnosticSeverity.Information;
+        
+        const message = dp.deprecated_in
+          ? `[Deprecated since ${dp.deprecated_in}] ${dp.message}`
+          : dp.message;
+        
+        diagnostics.push({
+          severity,
+          range: {
+            start: document.positionAt(startOffset),
+            end: document.positionAt(endOffset),
+          },
+          message,
+          source: "ha-lsp",
+          code: `deprecated-${dp.id}`,
         });
       }
     }
