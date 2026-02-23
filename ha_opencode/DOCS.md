@@ -20,7 +20,7 @@ Configure the app from the **Configuration** tab in the app page.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| **Enable MCP Home Assistant Integration** | `false` | Enable the Model Context Protocol (MCP) server for deep Home Assistant integration. Includes 19 tools, 9 resources, 6 guided prompts, and an intelligence layer for anomaly detection and automation suggestions. |
+| **Enable MCP Home Assistant Integration** | `false` | Enable the Model Context Protocol (MCP) server for deep Home Assistant integration. Includes 32 tools, 13 resources, 6 guided prompts, and an intelligence layer for anomaly detection, config validation, and automation suggestions. |
 | **Enable LSP Home Assistant Integration** | `true` | Enable the Language Server Protocol (LSP) server for intelligent YAML editing. Provides entity/service autocomplete, hover documentation, diagnostics for unknown entities, and go-to-definition for !include tags. |
 
 ### Terminal Appearance
@@ -112,8 +112,8 @@ The app includes an enhanced MCP (Model Context Protocol) server that provides d
 
 | Capability | Count | Description |
 |------------|-------|-------------|
-| **Tools** | 19 | Actions and queries for interacting with HA |
-| **Resources** | 9 + templates | Browsable data exposed to the AI |
+| **Tools** | 32 | Actions, queries, config validation, and device management |
+| **Resources** | 9 + 4 templates | Browsable data exposed to the AI |
 | **Prompts** | 6 | Pre-built guided workflows for common tasks |
 | **Intelligence** | Built-in | Anomaly detection, suggestions, semantic search |
 
@@ -137,7 +137,7 @@ Then restart OpenCode (exit and run `opencode` again).
 
 ---
 
-## MCP Tools (19 Available)
+## MCP Tools (32 Available)
 
 ### State Management
 
@@ -162,7 +162,7 @@ Then restart OpenCode (exit and run `opencode` again).
 | `get_logbook` | Get activity timeline showing what happened |
 | `get_error_log` | Retrieve Home Assistant error log |
 
-### Configuration
+### Configuration & Validation
 
 | Tool | Description |
 |------|-------------|
@@ -170,6 +170,8 @@ Then restart OpenCode (exit and run `opencode` again).
 | `get_areas` | List all defined areas with IDs and names |
 | `get_devices` | List devices, optionally filtered by area |
 | `validate_config` | Validate configuration files before restarting |
+| `write_config_safe` | **Safe config writer** — writes YAML with automatic validation, backup/restore, template checking, and deprecation scanning. See [Safe Config Writing](#safe-config-writing) below. |
+| `check_config_syntax` | Analyze YAML for deprecated syntax patterns and suggest modern alternatives |
 
 ### Events & Templates
 
@@ -192,6 +194,37 @@ Then restart OpenCode (exit and run `opencode` again).
 | `detect_anomalies` | Scan for issues: low batteries, unusual readings, open doors, etc. |
 | `get_suggestions` | Get automation and optimization suggestions based on your setup |
 | `diagnose_entity` | Run diagnostics on a problematic entity |
+
+### Documentation & Breaking Changes
+
+| Tool | Description |
+|------|-------------|
+| `get_integration_docs` | Fetch live documentation for any HA integration directly from home-assistant.io |
+| `get_breaking_changes` | Check for breaking changes that may affect your configuration after an update |
+
+### Update Management
+
+| Tool | Description |
+|------|-------------|
+| `get_available_updates` | Check for available updates across Core, OS, Supervisor, and all apps |
+| `get_addon_changelog` | View an app's changelog before updating |
+| `update_component` | Start an update for Core, OS, Supervisor, or an app |
+| `get_update_progress` | Monitor an in-progress update by job ID |
+| `get_running_jobs` | List all active Supervisor jobs |
+
+### ESPHome Integration
+
+| Tool | Description |
+|------|-------------|
+| `esphome_list_devices` | List all ESPHome devices with their status |
+| `esphome_compile` | Compile an ESPHome device configuration |
+| `esphome_upload` | Upload compiled firmware to an ESPHome device |
+
+### Firmware Updates
+
+| Tool | Description |
+|------|-------------|
+| `watch_firmware_update` | Monitor or start firmware updates (ESPHome, WLED, Zigbee) with real-time progress |
 
 ---
 
@@ -297,6 +330,47 @@ Analyzes your setup and suggests:
 - **Security alerts** for doors/windows left open
 - **Climate optimization** using thermostats and temperature sensors
 - **Energy monitoring** alerts for power consumption
+
+---
+
+## Safe Config Writing
+
+The `write_config_safe` MCP tool provides a complete validation pipeline when writing Home Assistant YAML configuration files. Instead of blind file writes, every change goes through multiple safety checks with automatic rollback on failure.
+
+### Validation Pipeline
+
+When you (or the AI agent) write configuration through `write_config_safe`, the following steps happen automatically:
+
+1. **Path security** — Resolves the target path and blocks writes outside the config directory (no traversal attacks, no writes to `.storage/`, `deps/`, `tts/`, etc.)
+2. **Deprecation scan** — Checks the YAML content against known deprecation patterns sourced from:
+   - A bundled pattern library (20+ patterns covering entity namespaces, MQTT changes, YAML config removal, etc.)
+   - Remote pattern updates fetched from GitHub (cached for 1 hour)
+   - Your instance's live **Repairs** issues (via the HA WebSocket API)
+   - The public **HA Alerts** feed (integration-level advisories with version ranges)
+3. **Structural validation** — Verifies that automations have `trigger` + `action`, scripts have `sequence`, template sensors have `state`, and other structural requirements are met
+4. **Jinja2 template validation** — Extracts all `{{ }}` and `{% %}` blocks and validates them against HA's template rendering engine. Templates containing runtime-only variables (`trigger.*`, `this.*`, `context.*`, etc.) are skipped since they can't be validated outside their execution context
+5. **File write with backup** — Creates a timestamped `.bak` copy of the existing file before writing the new content
+6. **HA Core config check** — Calls Home Assistant's configuration validation API to catch errors that static analysis can't
+7. **Auto-restore on failure** — If the config check fails, the backup is automatically restored and the error is reported
+
+### Dry Run Mode
+
+Pass `dry_run: true` to run the full validation pipeline without actually writing the file. This is useful for checking whether proposed changes would pass validation before committing to them.
+
+```
+Check if this automation YAML is valid without saving it
+```
+
+### What Gets Reported
+
+The tool returns a structured result with:
+
+- **`success`** — Whether the write (or dry run) passed all checks
+- **`deprecations`** — Any deprecated patterns found, with descriptions and suggested replacements
+- **`structuralIssues`** — Missing required keys or structural problems
+- **`templateErrors`** — Jinja2 template syntax or rendering errors
+- **`configCheckResult`** — Output from HA Core's config validation
+- **`backupPath`** — Path to the backup file (if a write occurred)
 
 ---
 
@@ -505,6 +579,20 @@ automation: !include missing_file.yaml
 #                    ❌ Include file not found: missing_file.yaml
 ```
 
+**Deprecation Warning:**
+```yaml
+automation:
+  - trigger:
+      - platform: state
+        entity_id: binary_sensor.front_door
+    action:
+      - service: notify.mobile_app
+        #~~~~~~~~
+        # ⚠ Deprecated: "service" is deprecated, use "action" instead (since 2024.x)
+```
+
+Deprecation patterns are loaded from a bundled pattern library and refreshed from GitHub in the background. Warnings appear as yellow squigglies in the editor as you type.
+
 #### Go-to-Definition
 
 Click on `!include` references to jump to the included file:
@@ -633,6 +721,18 @@ Check if my configuration is valid
 ```
 
 With MCP enabled, OpenCode calls the validation API directly and reports any errors.
+
+For a more thorough check, ask OpenCode to use the safe config writer which runs the full validation pipeline (deprecation scan, structural checks, template validation, and HA Core config check):
+
+```
+Write this automation to automations.yaml using safe config writing
+```
+
+```
+Dry-run validate my configuration.yaml without saving
+```
+
+See [Safe Config Writing](#safe-config-writing) for full details on the validation pipeline.
 
 ### Viewing Logs
 

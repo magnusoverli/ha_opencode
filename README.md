@@ -45,13 +45,13 @@ Works with **75+ AI providers**: Anthropic, OpenAI, Google, Groq, Ollama, and ma
 <td width="50%">
 
 #### 🔧 **Deep MCP Integration**
-31 tools, 13 resources, and 6 guided prompts for comprehensive Home Assistant interaction.
+32 tools, 13 resources, and 6 guided prompts for comprehensive Home Assistant interaction.
 
 #### 💡 **Intelligent LSP Support**
-Smart YAML editing with entity autocomplete, live hover information, instant diagnostics, and go-to-definition support.
+Smart YAML editing with entity autocomplete, live hover information, deprecation warnings, and go-to-definition support.
 
-#### 📊 **Complete Log Access**
-View Core, Supervisor, and host logs directly from the terminal.
+#### 🛡️ **Safe Config Writing**
+Validated config pipeline with automatic backup/restore. Your HA will never fail to start due to AI-written config.
 
 </td>
 </tr>
@@ -132,11 +132,20 @@ Simply run `/connect` and select **OpenCode Zen** to get started for free.
 
 ---
 
-## ⚠️ Important Security Notice
+## 🛡️ Safety & Validation
 
 > **This add-on has read/write access to your Home Assistant configuration directory.**
 
-While the AI is instructed to request confirmation before making changes, please:
+HA OpenCode includes a multi-layered validation pipeline that ensures your Home Assistant will never fail to start due to AI-written configuration:
+
+- 🔍 **Automatic config validation** — every config write is validated through HA Core's own check before committing
+- ↩️ **Automatic backup/restore** — if validation fails, the original file is instantly restored
+- 🧪 **Jinja2 template pre-validation** — templates are tested through HA's engine before writing to disk
+- 📋 **Deprecation scanning** — 20+ patterns catch outdated syntax, auto-updated from GitHub
+- 🏥 **HA Repairs integration** — surfaces your installation's active deprecation warnings
+- ⚠️ **Structural checks** — catches missing triggers, actions, and other required fields
+
+**Additional best practices:**
 
 - 💾 **Always backup** your configuration before significant changes
 - 👀 **Review changes** suggested by the AI before accepting them  
