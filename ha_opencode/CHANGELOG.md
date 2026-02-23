@@ -3,9 +3,10 @@ All notable changes to this project will be documented in this file.
 
 ## 1.4.1
 
-**CI: Prevent redundant builds from release workflow**
+**CI: Prevent redundant builds and fix release notes extraction**
 
 - Added `[skip ci]` to the automated version bump commit in the release workflow, preventing unnecessary CI runs when the release bot pushes to `main`
+- Fixed changelog extraction in release workflow — the `awk` range pattern was matching the section header as both start and end, producing empty release notes
 
 ## 1.4.0
 
