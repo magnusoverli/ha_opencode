@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 1.4.1
+
+**CI: Prevent redundant builds from release workflow**
+
+- Added `[skip ci]` to the automated version bump commit in the release workflow, preventing unnecessary CI runs when the release bot pushes to `main`
+
 ## 1.4.0
 
 **Safe Config Writing & Multi-Layered Validation Pipeline**
