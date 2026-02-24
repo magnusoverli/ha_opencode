@@ -32,6 +32,27 @@ Configure the app from the **Configuration** tab in the app page.
 | **Cursor Style** | `block` | Cursor appearance: `block`, `underline`, or `bar` |
 | **Blinking Cursor** | `false` | Whether the cursor should blink |
 
+### Advanced Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| **CPU Mode** | `auto` | Controls which OpenCode binary is used. `auto` detects your CPU capabilities automatically (recommended). `baseline` forces the baseline binary for older CPUs without AVX2 support. `regular` forces the standard binary. |
+| **Environment Variables** | `[]` | Define custom environment variables that are available to OpenCode and the terminal shell. Each entry has a `name` and `value`. Useful for provider credentials or configuration that must be set as environment variables (e.g. `AZURE_RESOURCE_NAME`, `OPENAI_API_KEY`). Changes take effect after restarting the add-on. Critical system variables (`HOME`, `PATH`, `SUPERVISOR_TOKEN`, etc.) cannot be overridden. |
+| **Custom OpenCode Configuration (JSON)** | `""` | Paste a JSON object to customize OpenCode's own configuration (providers, keybindings, etc.). This is merged with the add-on's built-in config. Leave empty for defaults. See [OpenCode config docs](https://opencode.ai/docs/config) for the full schema. |
+
+#### Environment Variables Example
+
+To set environment variables for an Azure OpenAI provider, add entries in the Configuration tab:
+
+| Name | Value |
+|------|-------|
+| `AZURE_RESOURCE_NAME` | `my-azure-resource` |
+| `AZURE_API_KEY` | `sk-...` |
+
+After saving and restarting the add-on, these variables will be available in the terminal and to OpenCode. You can then use `/connect` inside OpenCode to configure your provider.
+
+> **Note:** Environment variable values are stored on disk inside the container and are excluded from Home Assistant backups. However, they are visible in the add-on's Configuration tab. Treat them with the same care as any stored credential.
+
 ### Theme Previews
 
 - **Breeze** - KDE Konsole default, clean and professional
