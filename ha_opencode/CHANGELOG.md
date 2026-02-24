@@ -1,6 +1,20 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 1.4.4
+
+**Fix: write_config_safe now blocks writes when HA config check is unavailable**
+
+- `write_config_safe` previously treated a failed HA config check API call as a success,
+  leaving unvalidated config on disk. The tool now restores the original file (or removes
+  the newly written file) whenever the validation result is anything other than an explicit
+  `"valid"` from HA Core — including when the check API is unreachable or returns an error.
+- Removed overreaching "will never fail to start" guarantees from documentation and agent
+  instructions. Claims now accurately reference the multi-layered guardrails (deprecation
+  scanning, Jinja2 pre-validation, structural checks, backup/restore, HA Core config check)
+  rather than making absolute promises.
+- Expanded DOCS.md to cover `env_vars`, `cpu_mode`, and `opencode_config` configuration options.
+
 ## 1.4.2
 
 **Feature: User-Defined Environment Variables**
