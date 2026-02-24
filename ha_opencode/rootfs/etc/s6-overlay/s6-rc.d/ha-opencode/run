@@ -13,6 +13,11 @@ export HOME="/data"
 export XDG_DATA_HOME="/data/.local/share"
 export XDG_CONFIG_HOME="/data/.config"
 
+# Load user-defined environment variables (written by init-opencode)
+if [ -f /data/.env_vars ]; then
+    source /data/.env_vars
+fi
+
 # ==============================================================================
 # Read terminal appearance configuration
 # ==============================================================================

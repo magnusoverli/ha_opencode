@@ -8,6 +8,11 @@ export HOME="/data"
 export XDG_DATA_HOME="/data/.local/share"
 export XDG_CONFIG_HOME="/data/.config"
 
+# Load user-defined environment variables (written by init-opencode)
+if [ -f /data/.env_vars ]; then
+    source /data/.env_vars
+fi
+
 # Ensure SUPERVISOR_TOKEN is available for MCP server
 # This is auto-injected by Home Assistant Supervisor
 if [ -z "$SUPERVISOR_TOKEN" ]; then

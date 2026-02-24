@@ -28,6 +28,10 @@ configuration:
     name: "Blinking Cursor"
     description: "Whether the terminal cursor should blink."
   
+  env_vars:
+    name: "Environment Variables"
+    description: "Define custom environment variables that are available to OpenCode and the terminal shell. Useful for provider credentials and configuration that must be set as environment variables (e.g. AZURE_RESOURCE_NAME, OPENAI_API_KEY). Each entry needs a variable name and value. Changes take effect after restarting the add-on."
+
   opencode_config:
     name: "Custom OpenCode Configuration (JSON)"
     description: "Advanced: Paste a JSON object to customize OpenCode's own configuration (providers, keybindings, etc.). This is merged with the add-on's built-in config. Leave empty for defaults. See https://opencode.ai/docs/config for the full schema."

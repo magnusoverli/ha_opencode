@@ -20,6 +20,54 @@ LSP_ENABLED=$(bashio::config 'lsp_enabled' || echo "true")
 bashio::log.info "Configuration: MCP=${MCP_ENABLED} LSP=${LSP_ENABLED} CPU_MODE=${CPU_MODE_CONFIG}"
 
 # ==============================================================================
+# Process user-defined environment variables
+# Reads env_vars from add-on config and writes a sourceable file at /data/.env_vars
+# ==============================================================================
+
+ENV_VARS_FILE="/data/.env_vars"
+
+# Always start fresh to avoid stale variables from previous config
+rm -f "${ENV_VARS_FILE}"
+
+ENV_VARS_COUNT=$(bashio::config 'env_vars | length')
+
+if [ "${ENV_VARS_COUNT}" -gt 0 ]; then
+    bashio::log.info "Processing ${ENV_VARS_COUNT} user-defined environment variable(s)..."
+    
+    for i in $(seq 0 $((ENV_VARS_COUNT - 1))); do
+        VAR_NAME=$(bashio::config "env_vars[${i}].name")
+        VAR_VALUE=$(bashio::config "env_vars[${i}].value")
+        
+        # Validate variable name: must be a valid shell identifier
+        if ! printf '%s' "${VAR_NAME}" | grep -qE '^[A-Za-z_][A-Za-z0-9_]*$'; then
+            bashio::log.warning "Skipping invalid environment variable name: '${VAR_NAME}'"
+            bashio::log.warning "Names must start with a letter or underscore and contain only letters, digits, and underscores."
+            continue
+        fi
+        
+        # Block overriding critical system variables
+        case "${VAR_NAME}" in
+            HOME|PATH|SUPERVISOR_TOKEN|XDG_DATA_HOME|XDG_CONFIG_HOME|NODE_OPTIONS|SHELL|USER|PWD)
+                bashio::log.warning "Skipping reserved environment variable: '${VAR_NAME}'"
+                bashio::log.warning "System variables cannot be overridden to prevent breaking the add-on."
+                continue
+                ;;
+        esac
+        
+        # Escape single quotes in the value for safe shell sourcing
+        ESCAPED_VALUE=$(printf '%s' "${VAR_VALUE}" | sed "s/'/'\\\\''/g")
+        
+        printf "export %s='%s'\n" "${VAR_NAME}" "${ESCAPED_VALUE}" >> "${ENV_VARS_FILE}"
+        bashio::log.info "  Set environment variable: ${VAR_NAME}"
+    done
+    
+    chmod 600 "${ENV_VARS_FILE}"
+    bashio::log.info "Environment variables written to ${ENV_VARS_FILE}"
+else
+    bashio::log.info "No user-defined environment variables configured"
+fi
+
+# ==============================================================================
 # CPU Capability Detection - Select appropriate OpenCode binary
 # OpenCode provides baseline binaries for CPUs without AVX2 support
 # ==============================================================================

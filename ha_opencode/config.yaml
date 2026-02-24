@@ -48,6 +48,9 @@ options:
   cursor_style: "block"
   cursor_blink: false
   
+  # Environment variables to inject into the container
+  env_vars: []
+  
   # Advanced: custom OpenCode configuration (JSON)
   opencode_config: ""
 
@@ -65,6 +68,11 @@ schema:
   cursor_style: list(block|underline|bar)
   cursor_blink: bool
   
+  # Environment variables
+  env_vars:
+    - name: str
+      value: str
+  
   # Advanced
   opencode_config: str?
 
@@ -73,3 +81,4 @@ backup_exclude:
   - ".npm/*"
   - ".cache/*"
   - ".local/share/opencode/cache/*"
+  - ".env_vars"
