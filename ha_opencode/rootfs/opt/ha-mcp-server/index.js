@@ -3314,15 +3314,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           sendLog("error", "config", { action: "validation_call_failed", error: error.message });
           validationResult = "skipped";
           validationErrors = `Could not run HA config check: ${error.message}`;
+          
+          // Cannot confirm the config is valid — restore backup same as "invalid"
+          if (hadExistingFile) {
+            try {
+              copyFileSync(backupPath, resolvedPath);
+              backupRestored = true;
+              sendLog("info", "config", { action: "backup_restored", path: resolvedPath });
+            } catch (restoreError) {
+              sendLog("error", "config", { action: "backup_restore_failed", error: restoreError.message });
+            }
+          } else {
+            // No original file existed — remove the unvalidated one
+            try {
+              unlinkSync(resolvedPath);
+              backupRestored = true;
+            } catch (_) { /* best effort */ }
+          }
         }
         
-        // Clean up backup on success
-        if (validationResult !== "invalid" && hadExistingFile) {
+        // Clean up backup only on confirmed valid result
+        if (validationResult === "valid" && hadExistingFile) {
           try { unlinkSync(backupPath); } catch (_) { /* best effort */ }
         }
         
         // Step 11: Build response
-        const success = validationResult !== "invalid";
+        const success = validationResult === "valid";
         let responseText = `# Safe Config Write - ${success ? "SUCCESS" : "FAILED"}\n\n`;
         responseText += `**File:** \`${file_path}\`\n`;
         responseText += `**HA Config Validation:** ${validationResult}\n`;

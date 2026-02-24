@@ -50,7 +50,7 @@ Works with **75+ AI providers**: Anthropic, OpenAI, Google, Groq, Ollama, and ma
 Smart YAML editing with entity autocomplete, live hover information, deprecation warnings, and go-to-definition support.
 
 #### 🛡️ **Safe Config Writing**
-Validated config pipeline with automatic backup/restore. Your HA will never fail to start due to AI-written config.
+Validated config pipeline with automatic backup/restore. Multi-layered checks are designed to prevent AI-written config from breaking your HA instance.
 
 </td>
 </tr>
@@ -135,7 +135,7 @@ Simply run `/connect` and select **OpenCode Zen** to get started for free.
 
 > **This add-on has read/write access to your Home Assistant configuration directory.**
 
-HA OpenCode includes a multi-layered validation pipeline that ensures your Home Assistant will never fail to start due to AI-written configuration:
+HA OpenCode includes a multi-layered validation pipeline designed to prevent AI-written configuration from causing your Home Assistant to fail to start:
 
 - 🔍 **Automatic config validation** — every config write is validated through HA Core's own check before committing
 - ↩️ **Automatic backup/restore** — if validation fails, the original file is instantly restored

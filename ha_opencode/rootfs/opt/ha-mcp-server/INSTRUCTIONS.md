@@ -102,7 +102,7 @@ Use the documentation tools proactively:
 
 ### MANDATORY Workflow for Configuration Tasks
 
-**Use `write_config_safe` as the primary tool for writing configuration files.** This tool automatically validates before committing to disk and will never leave your HA in a broken state.
+**Use `write_config_safe` as the primary tool for writing configuration files.** This tool automatically validates before committing to disk and restores the original file if validation fails.
 
 ```
 1. get_config()                                        -> Know the HA version
@@ -124,7 +124,7 @@ The `write_config_safe` tool performs these checks automatically:
 - **Full HA config validation** — calls HA Core's check_config (same as `ha core check`)
 - **Automatic backup/restore** — if validation fails after writing, restores the original file
 
-**If validation fails, the original file is automatically restored. HA will never fail to start due to config written through this tool.**
+**If validation fails, the original file is automatically restored. The multi-layered validation pipeline is designed to prevent invalid config from reaching your HA instance.**
 
 ### How Validation Data Stays Current
 

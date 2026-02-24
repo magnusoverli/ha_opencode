@@ -29,7 +29,7 @@ Closes #12
 
 **Safe Config Writing & Multi-Layered Validation Pipeline**
 
-This release adds a comprehensive config validation system that ensures your Home Assistant will never fail to start due to AI-written configuration. Inspired by community feedback on making AI coding agents safe for production HA instances.
+This release adds a comprehensive config validation system with multiple layers of protection against AI-written configuration causing your Home Assistant to fail to start. Inspired by community feedback on making AI coding agents safe for production HA instances.
 
 ### New MCP Tool: `write_config_safe`
 - Writes YAML config files with automatic validation and backup/restore
