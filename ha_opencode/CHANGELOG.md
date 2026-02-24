@@ -1,6 +1,23 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 1.4.2
+
+**Feature: User-Defined Environment Variables**
+
+- Added `env_vars` configuration option to pass custom environment variables into the container
+  - Supports any key/value pair (e.g. `AZURE_RESOURCE_NAME`, `OPENAI_API_KEY`)
+  - Variables are available to OpenCode, the terminal shell, and all child processes
+  - Configurable from the add-on's Configuration tab in Home Assistant
+- Security hardening:
+  - Variable names validated against strict shell identifier regex
+  - Critical system variables (`HOME`, `PATH`, `SUPERVISOR_TOKEN`, etc.) are blocked from being overridden
+  - Values are single-quote escaped to prevent shell injection
+  - File permissions set to 600 and excluded from backups to protect secrets
+- Removed unused legacy `run.sh` entry point (dead code cleanup)
+
+Closes #12
+
 ## 1.4.1
 
 **CI: Prevent redundant builds and fix release notes extraction**
